@@ -1,7 +1,13 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { X, Upload, Trash2 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
+import { uploadFile } from "@/lib/supabase";
+import { Loader2, Upload, X } from "lucide-react";
 
 interface AdminModalProps {
   isOpen: boolean;
@@ -9,500 +15,499 @@ interface AdminModalProps {
 }
 
 export default function AdminModal({ isOpen, onClose }: AdminModalProps) {
-  const [activeTab, setActiveTab] = useState<"carrossel" | "investimentos" | "config">(
-    "carrossel"
-  );
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
+  const [activeTab, setActiveTab] = useState("carrossel");
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Carrossel state
+  const [carrosselTitle, setCarrosselTitle] = useState("");
+  const [carrosselDesc, setCarrosselDesc] = useState("");
+  const [carrosselImage, setCarrosselImage] = useState<File | null>(null);
+  const [carrosselImagePreview, setCarrosselImagePreview] = useState("");
+
+  // Investimentos state
+  const [investTitle, setInvestTitle] = useState("");
+  const [investDesc, setInvestDesc] = useState("");
+  const [investType, setInvestType] = useState("lancamentos");
+  const [investImage, setInvestImage] = useState<File | null>(null);
+  const [investImagePreview, setInvestImagePreview] = useState("");
+
+  // Config state
+  const [siteTitle, setSiteTitle] = useState("");
+  const [quemSomos, setQuemSomos] = useState("");
+  const [primaryColor, setPrimaryColor] = useState("#1E40AF");
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoPreview, setLogoPreview] = useState("");
+  const [bannerFile, setBannerFile] = useState<File | null>(null);
+  const [bannerPreview, setBannerPreview] = useState("");
 
   // Queries
-  const { data: carrosselData = [], refetch: refetchCarrossel } =
-    trpc.carrossel.list.useQuery();
-  const { data: investimentosData = [], refetch: refetchInvestimentos } =
-    trpc.investimentos.list.useQuery();
-  const { data: configData, refetch: refetchConfig } = trpc.config.get.useQuery();
+  const { data: configData } = trpc.config.get.useQuery();
+  const { data: carrosselData = [] } = trpc.carrossel.list.useQuery();
+  const { data: investimentosData = [] } = trpc.investimentos.list.useQuery();
 
   // Mutations
-  const createCarrosselMutation = trpc.carrossel.create.useMutation();
-  const updateCarrosselMutation = trpc.carrossel.update.useMutation();
-  const deleteCarrosselMutation = trpc.carrossel.delete.useMutation();
+  const createCarrossel = trpc.carrossel.create.useMutation();
+  const createInvestimento = trpc.investimentos.create.useMutation();
+  const updateConfig = trpc.config.update.useMutation();
 
-  const createInvestimentoMutation = trpc.investimentos.create.useMutation();
-  const updateInvestimentoMutation = trpc.investimentos.update.useMutation();
-  const deleteInvestimentoMutation = trpc.investimentos.delete.useMutation();
-
-  const updateConfigMutation = trpc.config.update.useMutation();
-
-  // Form states
-  const [carrosselForm, setCarrosselForm] = useState({
-    titulo: "",
-    descricao: "",
-    imagemUrl: "",
-  });
-
-  const [investimentoForm, setInvestimentoForm] = useState({
-    tipo: "lancamentos" as const,
-    titulo: "",
-    descricao: "",
-    imagemUrl: "",
-  });
-
-  const [configForm, setConfigForm] = useState({
-    quemSomos: configData?.quemSomos || "",
-    corPrimaria: configData?.corPrimaria || "#1E40AF",
-  });
-
-  const handleAddCarrossel = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
-    setSuccess("");
-    setLoading(true);
-
-    try {
-      await createCarrosselMutation.mutateAsync(carrosselForm);
-      setCarrosselForm({ titulo: "", descricao: "", imagemUrl: "" });
-      setSuccess("Slide adicionado com sucesso!");
-      refetchCarrossel();
-    } catch (err) {
-      setError("Erro ao adicionar slide");
-    } finally {
-      setLoading(false);
+  const handleImageChange = (
+    e: React.ChangeEvent<HTMLInputElement>,
+    setFile: (file: File | null) => void,
+    setPreview: (preview: string) => void
+  ) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
     }
   };
 
-  const handleDeleteCarrossel = async (id: number) => {
-    if (!confirm("Tem certeza que deseja deletar este slide?")) return;
-
-    setLoading(true);
-    try {
-      await deleteCarrosselMutation.mutateAsync({ id });
-      setSuccess("Slide deletado com sucesso!");
-      refetchCarrossel();
-    } catch (err) {
-      setError("Erro ao deletar slide");
-    } finally {
-      setLoading(false);
+  const handleAddCarrossel = async () => {
+    if (!carrosselTitle || !carrosselDesc) {
+      toast.error("Preencha todos os campos");
+      return;
     }
-  };
 
-  const handleAddInvestimento = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
-    setSuccess("");
-    setLoading(true);
-
+    setIsLoading(true);
     try {
-      await createInvestimentoMutation.mutateAsync(investimentoForm);
-      setInvestimentoForm({
-        tipo: "lancamentos",
-        titulo: "",
-        descricao: "",
-        imagemUrl: "",
+      let imageUrl = carrosselImagePreview;
+
+      if (carrosselImage) {
+        const result = await uploadFile(
+          "carrossel",
+          `${Date.now()}-${carrosselImage.name}`,
+          carrosselImage
+        );
+        if (!result) {
+          toast.error("Erro ao fazer upload da imagem");
+          setIsLoading(false);
+          return;
+        }
+        imageUrl = result.url;
+      }
+
+      await createCarrossel.mutateAsync({
+        titulo: carrosselTitle,
+        descricao: carrosselDesc,
+        imagemUrl: imageUrl,
       });
-      setSuccess("Investimento adicionado com sucesso!");
-      refetchInvestimentos();
-    } catch (err) {
-      setError("Erro ao adicionar investimento");
+
+      toast.success("Slide adicionado com sucesso!");
+      setCarrosselTitle("");
+      setCarrosselDesc("");
+      setCarrosselImage(null);
+      setCarrosselImagePreview("");
+    } catch (error) {
+      toast.error("Erro ao adicionar slide");
+      console.error(error);
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
-  const handleDeleteInvestimento = async (id: number) => {
-    if (!confirm("Tem certeza que deseja deletar este investimento?")) return;
+  const handleAddInvestimento = async () => {
+    if (!investTitle || !investDesc) {
+      toast.error("Preencha todos os campos");
+      return;
+    }
 
-    setLoading(true);
+    setIsLoading(true);
     try {
-      await deleteInvestimentoMutation.mutateAsync({ id });
-      setSuccess("Investimento deletado com sucesso!");
-      refetchInvestimentos();
-    } catch (err) {
-      setError("Erro ao deletar investimento");
+      let imageUrl = investImagePreview;
+
+      if (investImage) {
+        const result = await uploadFile(
+          "investimentos",
+          `${Date.now()}-${investImage.name}`,
+          investImage
+        );
+        if (!result) {
+          toast.error("Erro ao fazer upload da imagem");
+          setIsLoading(false);
+          return;
+        }
+        imageUrl = result.url;
+      }
+
+      await createInvestimento.mutateAsync({
+        tipo: investType as "lancamentos" | "na_planta" | "aluguel",
+        titulo: investTitle,
+        descricao: investDesc,
+        imagemUrl: imageUrl,
+      });
+
+      toast.success("Investimento adicionado com sucesso!");
+      setInvestTitle("");
+      setInvestDesc("");
+      setInvestImage(null);
+      setInvestImagePreview("");
+    } catch (error) {
+      toast.error("Erro ao adicionar investimento");
+      console.error(error);
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
-  const handleUpdateConfig = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
-    setSuccess("");
-    setLoading(true);
-
+  const handleUpdateConfig = async () => {
+    setIsLoading(true);
     try {
-      await updateConfigMutation.mutateAsync(configForm);
-      setSuccess("Configurações atualizadas com sucesso!");
-      refetchConfig();
-    } catch (err) {
-      setError("Erro ao atualizar configurações");
+      let logoUrl = logoPreview;
+      let bannerUrl = bannerPreview;
+
+      if (logoFile) {
+        const result = await uploadFile(
+          "config",
+          `logo-${Date.now()}.${logoFile.name.split(".").pop()}`,
+          logoFile
+        );
+        if (result) {
+          logoUrl = result.url;
+        }
+      }
+
+      if (bannerFile) {
+        const result = await uploadFile(
+          "config",
+          `banner-${Date.now()}.${bannerFile.name.split(".").pop()}`,
+          bannerFile
+        );
+        if (result) {
+          bannerUrl = result.url;
+        }
+      }
+
+      await updateConfig.mutateAsync({
+        quemSomos: quemSomos || configData?.quemSomos || "",
+        corPrimaria: primaryColor,
+        tamanho: 16,
+        ...(logoUrl && { logo: logoUrl }),
+        ...(bannerUrl && { banner: bannerUrl }),
+      } as any);
+
+      toast.success("Configurações atualizadas com sucesso!");
+      setLogoFile(null);
+      setBannerFile(null);
+    } catch (error) {
+      toast.error("Erro ao atualizar configurações");
+      console.error(error);
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
-
-  if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 overflow-y-auto">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl mx-4 my-8 relative">
-        {/* Close Button */}
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 text-gray-500 hover:text-gray-700 z-10"
-        >
-          <X size={24} />
-        </button>
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Área de Gestão</DialogTitle>
+        </DialogHeader>
 
-        {/* Modal Content */}
-        <div className="p-8">
-          <h2 className="text-2xl font-bold text-black mb-6">Área de Gestão</h2>
-
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">
-              {error}
-            </div>
-          )}
-
-          {success && (
-            <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg mb-4">
-              {success}
-            </div>
-          )}
-
-          {/* Tabs */}
-          <div className="flex gap-4 mb-8 border-b border-gray-200">
-            <button
-              onClick={() => setActiveTab("carrossel")}
-              className={`px-4 py-2 font-semibold border-b-2 transition ${
-                activeTab === "carrossel"
-                  ? "border-blue-700 text-blue-700"
-                  : "border-transparent text-gray-600 hover:text-gray-900"
-              }`}
-            >
-              Carrossel
-            </button>
-            <button
-              onClick={() => setActiveTab("investimentos")}
-              className={`px-4 py-2 font-semibold border-b-2 transition ${
-                activeTab === "investimentos"
-                  ? "border-blue-700 text-blue-700"
-                  : "border-transparent text-gray-600 hover:text-gray-900"
-              }`}
-            >
-              Investimentos
-            </button>
-            <button
-              onClick={() => setActiveTab("config")}
-              className={`px-4 py-2 font-semibold border-b-2 transition ${
-                activeTab === "config"
-                  ? "border-blue-700 text-blue-700"
-                  : "border-transparent text-gray-600 hover:text-gray-900"
-              }`}
-            >
-              Configurações
-            </button>
-          </div>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="carrossel">Carrossel</TabsTrigger>
+            <TabsTrigger value="investimentos">Investimentos</TabsTrigger>
+            <TabsTrigger value="config">Configurações</TabsTrigger>
+          </TabsList>
 
           {/* Carrossel Tab */}
-          {activeTab === "carrossel" && (
-            <div className="space-y-6">
+          <TabsContent value="carrossel" className="space-y-4">
+            <div className="space-y-4">
               <div>
-                <h3 className="text-lg font-bold text-black mb-4">Adicionar Slide</h3>
-                <form onSubmit={handleAddCarrossel} className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Título
-                    </label>
-                    <input
-                      type="text"
-                      value={carrosselForm.titulo}
-                      onChange={(e) =>
-                        setCarrosselForm({
-                          ...carrosselForm,
-                          titulo: e.target.value,
-                        })
-                      }
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-700"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Descrição
-                    </label>
-                    <textarea
-                      value={carrosselForm.descricao}
-                      onChange={(e) =>
-                        setCarrosselForm({
-                          ...carrosselForm,
-                          descricao: e.target.value,
-                        })
-                      }
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-700 resize-none"
-                      rows={3}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      URL da Imagem
-                    </label>
-                    <input
-                      type="url"
-                      value={carrosselForm.imagemUrl}
-                      onChange={(e) =>
-                        setCarrosselForm({
-                          ...carrosselForm,
-                          imagemUrl: e.target.value,
-                        })
-                      }
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-700"
-                      placeholder="https://..."
-                    />
-                  </div>
-
-                  <Button
-                    type="submit"
-                    disabled={loading}
-                    className="bg-blue-700 hover:bg-blue-800 text-white"
-                  >
-                    {loading ? "Adicionando..." : "Adicionar Slide"}
-                  </Button>
-                </form>
+                <label className="block text-sm font-medium mb-2">Título</label>
+                <Input
+                  value={carrosselTitle}
+                  onChange={(e) => setCarrosselTitle(e.target.value)}
+                  placeholder="Ex: Oportunidade de Ouro"
+                />
               </div>
 
-              {/* Carrossel List */}
               <div>
-                <h3 className="text-lg font-bold text-black mb-4">Slides Existentes</h3>
-                <div className="space-y-4">
-                  {carrosselData.map((slide) => (
-                    <div
-                      key={slide.id}
-                      className="border border-gray-200 rounded-lg p-4 flex items-center justify-between"
-                    >
-                      <div className="flex-1">
-                        <h4 className="font-semibold text-black">{slide.titulo}</h4>
-                        <p className="text-sm text-gray-600">{slide.descricao}</p>
-                      </div>
+                <label className="block text-sm font-medium mb-2">Descrição</label>
+                <Textarea
+                  value={carrosselDesc}
+                  onChange={(e) => setCarrosselDesc(e.target.value)}
+                  placeholder="Descrição do slide"
+                  rows={3}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">Imagem</label>
+                <div className="border-2 border-dashed rounded-lg p-4">
+                  {carrosselImagePreview ? (
+                    <div className="relative">
+                      <img
+                        src={carrosselImagePreview}
+                        alt="Preview"
+                        className="max-h-48 rounded"
+                      />
                       <button
-                        onClick={() => handleDeleteCarrossel(slide.id)}
-                        disabled={loading}
-                        className="ml-4 p-2 text-red-600 hover:bg-red-50 rounded-lg transition"
+                        onClick={() => {
+                          setCarrosselImage(null);
+                          setCarrosselImagePreview("");
+                        }}
+                        className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded"
                       >
-                        <Trash2 size={20} />
+                        <X size={16} />
                       </button>
+                    </div>
+                  ) : (
+                    <label className="cursor-pointer flex flex-col items-center gap-2">
+                      <Upload size={24} />
+                      <span className="text-sm">Clique para fazer upload</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) =>
+                          handleImageChange(e, setCarrosselImage, setCarrosselImagePreview)
+                        }
+                        className="hidden"
+                      />
+                    </label>
+                  )}
+                </div>
+              </div>
+
+              <Button
+                onClick={handleAddCarrossel}
+                disabled={isLoading}
+                className="w-full"
+              >
+                {isLoading ? <Loader2 className="animate-spin mr-2" /> : null}
+                Adicionar Slide
+              </Button>
+
+              <div className="mt-6">
+                <h3 className="font-semibold mb-3">Slides Atuais</h3>
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {carrosselData.map((slide) => (
+                    <div key={slide.id} className="p-3 bg-gray-100 rounded">
+                      <p className="font-medium">{slide.titulo}</p>
+                      <p className="text-sm text-gray-600">{slide.descricao}</p>
                     </div>
                   ))}
                 </div>
               </div>
             </div>
-          )}
+          </TabsContent>
 
           {/* Investimentos Tab */}
-          {activeTab === "investimentos" && (
-            <div className="space-y-6">
+          <TabsContent value="investimentos" className="space-y-4">
+            <div className="space-y-4">
               <div>
-                <h3 className="text-lg font-bold text-black mb-4">
-                  Adicionar Investimento
-                </h3>
-                <form onSubmit={handleAddInvestimento} className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Tipo
-                    </label>
-                    <select
-                      value={investimentoForm.tipo}
-                      onChange={(e) =>
-                        setInvestimentoForm({
-                          ...investimentoForm,
-                          tipo: e.target.value as any,
-                        })
-                      }
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-700"
-                    >
-                      <option value="lancamentos">Lançamentos</option>
-                      <option value="na_planta">Na Planta</option>
-                      <option value="aluguel">Aluguel</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Título
-                    </label>
-                    <input
-                      type="text"
-                      value={investimentoForm.titulo}
-                      onChange={(e) =>
-                        setInvestimentoForm({
-                          ...investimentoForm,
-                          titulo: e.target.value,
-                        })
-                      }
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-700"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Descrição
-                    </label>
-                    <textarea
-                      value={investimentoForm.descricao}
-                      onChange={(e) =>
-                        setInvestimentoForm({
-                          ...investimentoForm,
-                          descricao: e.target.value,
-                        })
-                      }
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-700 resize-none"
-                      rows={3}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      URL da Imagem
-                    </label>
-                    <input
-                      type="url"
-                      value={investimentoForm.imagemUrl}
-                      onChange={(e) =>
-                        setInvestimentoForm({
-                          ...investimentoForm,
-                          imagemUrl: e.target.value,
-                        })
-                      }
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-700"
-                      placeholder="https://..."
-                    />
-                  </div>
-
-                  <Button
-                    type="submit"
-                    disabled={loading}
-                    className="bg-blue-700 hover:bg-blue-800 text-white"
-                  >
-                    {loading ? "Adicionando..." : "Adicionar Investimento"}
-                  </Button>
-                </form>
+                <label className="block text-sm font-medium mb-2">Tipo</label>
+                <select
+                  value={investType}
+                  onChange={(e) => setInvestType(e.target.value)}
+                  className="w-full border rounded px-3 py-2"
+                >
+                  <option value="lancamentos">Lançamentos</option>
+                  <option value="na_planta">Na Planta</option>
+                  <option value="aluguel">Aluguel</option>
+                </select>
               </div>
 
-              {/* Investimentos List */}
               <div>
-                <h3 className="text-lg font-bold text-black mb-4">
-                  Investimentos Existentes
-                </h3>
-                <div className="space-y-4">
-                  {investimentosData.map((inv) => (
-                    <div
-                      key={inv.id}
-                      className="border border-gray-200 rounded-lg p-4 flex items-center justify-between"
-                    >
-                      <div className="flex-1">
-                        <h4 className="font-semibold text-black">{inv.titulo}</h4>
-                        <p className="text-sm text-gray-600">{inv.descricao}</p>
-                        <span className="inline-block mt-2 text-xs font-semibold text-blue-700 bg-blue-50 px-2 py-1 rounded">
-                          {inv.tipo === "lancamentos"
-                            ? "Lançamentos"
-                            : inv.tipo === "na_planta"
-                            ? "Na Planta"
-                            : "Aluguel"}
-                        </span>
-                      </div>
+                <label className="block text-sm font-medium mb-2">Título</label>
+                <Input
+                  value={investTitle}
+                  onChange={(e) => setInvestTitle(e.target.value)}
+                  placeholder="Ex: Residencial Premium"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">Descrição</label>
+                <Textarea
+                  value={investDesc}
+                  onChange={(e) => setInvestDesc(e.target.value)}
+                  placeholder="Descrição do investimento"
+                  rows={3}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">Imagem</label>
+                <div className="border-2 border-dashed rounded-lg p-4">
+                  {investImagePreview ? (
+                    <div className="relative">
+                      <img
+                        src={investImagePreview}
+                        alt="Preview"
+                        className="max-h-48 rounded"
+                      />
                       <button
-                        onClick={() => handleDeleteInvestimento(inv.id)}
-                        disabled={loading}
-                        className="ml-4 p-2 text-red-600 hover:bg-red-50 rounded-lg transition"
+                        onClick={() => {
+                          setInvestImage(null);
+                          setInvestImagePreview("");
+                        }}
+                        className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded"
                       >
-                        <Trash2 size={20} />
+                        <X size={16} />
                       </button>
+                    </div>
+                  ) : (
+                    <label className="cursor-pointer flex flex-col items-center gap-2">
+                      <Upload size={24} />
+                      <span className="text-sm">Clique para fazer upload</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) =>
+                          handleImageChange(e, setInvestImage, setInvestImagePreview)
+                        }
+                        className="hidden"
+                      />
+                    </label>
+                  )}
+                </div>
+              </div>
+
+              <Button
+                onClick={handleAddInvestimento}
+                disabled={isLoading}
+                className="w-full"
+              >
+                {isLoading ? <Loader2 className="animate-spin mr-2" /> : null}
+                Adicionar Investimento
+              </Button>
+
+              <div className="mt-6">
+                <h3 className="font-semibold mb-3">Investimentos Atuais</h3>
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {investimentosData.map((invest) => (
+                    <div key={invest.id} className="p-3 bg-gray-100 rounded">
+                      <p className="font-medium">{invest.titulo}</p>
+                      <p className="text-xs text-blue-600">{invest.tipo.toUpperCase()}</p>
+                      <p className="text-sm text-gray-600">{invest.descricao}</p>
                     </div>
                   ))}
                 </div>
               </div>
             </div>
-          )}
+          </TabsContent>
 
-          {/* Config Tab */}
-          {activeTab === "config" && (
-            <div>
-              <h3 className="text-lg font-bold text-black mb-4">Configurações do Site</h3>
-              <form onSubmit={handleUpdateConfig} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Quem Somos
-                  </label>
-                  <textarea
-                    value={configForm.quemSomos}
-                    onChange={(e) =>
-                      setConfigForm({
-                        ...configForm,
-                        quemSomos: e.target.value,
-                      })
-                    }
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-700 resize-none"
-                    rows={5}
+          {/* Configurações Tab */}
+          <TabsContent value="config" className="space-y-4">
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">Logo</label>
+                <div className="border-2 border-dashed rounded-lg p-4">
+                  {logoPreview || (configData?.logo || "") ? (
+                    <div className="relative">
+                      <img
+                        src={logoPreview || configData?.logo || ""}
+                        alt="Logo"
+                        className="max-h-32 rounded"
+                      />
+                      {logoFile && (
+                        <button
+                          onClick={() => {
+                            setLogoFile(null);
+                            setLogoPreview("");
+                          }}
+                          className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded"
+                        >
+                          <X size={16} />
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <label className="cursor-pointer flex flex-col items-center gap-2">
+                      <Upload size={24} />
+                      <span className="text-sm">Clique para fazer upload do logo</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => handleImageChange(e, setLogoFile, setLogoPreview)}
+                        className="hidden"
+                      />
+                    </label>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">Banner</label>
+                <div className="border-2 border-dashed rounded-lg p-4">
+                  {bannerPreview || (configData?.banner || "") ? (
+                    <div className="relative">
+                      <img
+                        src={bannerPreview || configData?.banner || ""}
+                        alt="Banner"
+                        className="max-h-32 rounded w-full object-cover"
+                      />
+                      {bannerFile && (
+                        <button
+                          onClick={() => {
+                            setBannerFile(null);
+                            setBannerPreview("");
+                          }}
+                          className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded"
+                        >
+                          <X size={16} />
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <label className="cursor-pointer flex flex-col items-center gap-2">
+                      <Upload size={24} />
+                      <span className="text-sm">Clique para fazer upload do banner</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => handleImageChange(e, setBannerFile, setBannerPreview)}
+                        className="hidden"
+                      />
+                    </label>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">Cor Primária</label>
+                <div className="flex gap-2">
+                  <input
+                    type="color"
+                    value={primaryColor}
+                    onChange={(e) => setPrimaryColor(e.target.value)}
+                    className="w-12 h-10 rounded cursor-pointer"
+                  />
+                  <Input
+                    value={primaryColor}
+                    onChange={(e) => setPrimaryColor(e.target.value)}
+                    placeholder="#1E40AF"
                   />
                 </div>
+              </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Cor Primária
-                  </label>
-                  <div className="flex gap-4">
-                    <input
-                      type="color"
-                      value={configForm.corPrimaria}
-                      onChange={(e) =>
-                        setConfigForm({
-                          ...configForm,
-                          corPrimaria: e.target.value,
-                        })
-                      }
-                      className="w-20 h-10 border border-gray-300 rounded-lg cursor-pointer"
-                    />
-                    <input
-                      type="text"
-                      value={configForm.corPrimaria}
-                      onChange={(e) =>
-                        setConfigForm({
-                          ...configForm,
-                          corPrimaria: e.target.value,
-                        })
-                      }
-                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-700"
-                      placeholder="#1E40AF"
-                    />
-                  </div>
-                </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Quem Somos</label>
+                <Textarea
+                  value={quemSomos || configData?.quemSomos || ""}
+                  onChange={(e) => setQuemSomos(e.target.value)}
+                  placeholder="Descrição da empresa"
+                  rows={4}
+                />
+              </div>
 
-                <Button
-                  type="submit"
-                  disabled={loading}
-                  className="bg-blue-700 hover:bg-blue-800 text-white"
-                >
-                  {loading ? "Salvando..." : "Salvar Configurações"}
-                </Button>
-              </form>
+              <Button
+                onClick={handleUpdateConfig}
+                disabled={isLoading}
+                className="w-full"
+              >
+                {isLoading ? <Loader2 className="animate-spin mr-2" /> : null}
+                Salvar Configurações
+              </Button>
             </div>
-          )}
-
-          {/* Close Button */}
-          <div className="mt-8 pt-6 border-t border-gray-200">
-            <Button
-              onClick={onClose}
-              variant="outline"
-              className="w-full text-gray-700 border-gray-300 hover:bg-gray-50"
-            >
-              Fechar
-            </Button>
-          </div>
-        </div>
-      </div>
-    </div>
+          </TabsContent>
+        </Tabs>
+      </DialogContent>
+    </Dialog>
   );
 }

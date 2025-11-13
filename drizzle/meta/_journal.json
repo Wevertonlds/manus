@@ -15,6 +15,13 @@
       "when": 1762993937355,
       "tag": "0001_zippy_blindfold",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1762995037008,
+      "tag": "0002_clammy_umar",
+      "breakpoints": true
     }
   ]
 }

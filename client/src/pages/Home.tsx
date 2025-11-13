@@ -71,15 +71,6 @@ export default function Home() {
             {isAuthenticated ? (
               <>
                 <span className="text-sm text-gray-600">{user?.name || user?.email}</span>
-                {user?.role === "admin" && (
-                  <Button
-                    onClick={() => setShowAdminModal(true)}
-                    variant="outline"
-                    size="sm"
-                  >
-                    Área de Gestão
-                  </Button>
-                )}
                 <Button
                   onClick={() => logout()}
                   variant="outline"
@@ -96,7 +87,8 @@ export default function Home() {
               >
                 Entrar
               </Button>
-            )}
+            )
+          }
 
             {/* Mobile Menu Button */}
             <button

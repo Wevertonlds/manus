@@ -36,3 +36,14 @@
 - [ ] Testar edição de conteúdo
 - [ ] Criar checkpoint para deploy
 - [ ] Deploy no Vercel (via Publish)
+
+
+## Integração Supabase
+- [ ] Integrar Supabase (substituir banco MySQL local)
+- [ ] Criar tabelas no Supabase (carrossel, investimentos, config)
+- [ ] Criar bucket de storage para fotos
+- [ ] Expandir modal de admin com upload de logo e banner
+- [ ] Adicionar configurações de propriedades no modal
+- [ ] Remover "Área de Gestão" do header
+- [ ] Testar upload de imagens para Supabase Storage
+- [ ] Testar CRUD completo com Supabase
