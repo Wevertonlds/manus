@@ -1,7 +1,7 @@
-import { useAuth } from "@/_core/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { APP_LOGO, APP_TITLE, getLoginUrl } from "@/const";
 import { trpc } from "@/lib/trpc";
+import { useAuth } from "@/_core/hooks/useAuth";
 import React, { useState, useEffect } from "react";
 import { ChevronLeft, ChevronRight, Menu, X } from "lucide-react";
 import LoginModal from "@/components/LoginModal";
@@ -66,138 +66,82 @@ export default function Home() {
             </a>
           </nav>
 
-          {/* Auth Buttons */}
-          <div className="flex items-center gap-4">
-            {isAuthenticated ? (
-              <>
-                <span className="text-sm text-gray-600">{user?.name || user?.email}</span>
-                <Button
-                  onClick={() => logout()}
-                  variant="outline"
-                  size="sm"
-                >
-                  Sair
-                </Button>
-              </>
-            ) : (
-              <Button
-                onClick={() => setShowLoginModal(true)}
-                className="bg-blue-700 hover:bg-blue-800 text-white"
-                size="sm"
-              >
-                Entrar
-              </Button>
-            )
-          }
-
-            {/* Mobile Menu Button */}
-            <button
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="md:hidden"
-            >
-              {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
-            </button>
-          </div>
+          {/* Mobile Menu Button */}
+          <button
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="md:hidden"
+          >
+            {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+          </button>
         </div>
-
-        {/* Mobile Navigation */}
-        {mobileMenuOpen && (
-          <nav className="md:hidden border-t border-gray-200 bg-gray-50 py-4">
-            <div className="container mx-auto px-4 flex flex-col gap-4">
-              <a href="#home" className="text-black hover:text-blue-700 transition">
-                Home
-              </a>
-              <a href="#lancamentos" className="text-black hover:text-blue-700 transition">
-                Compra na Planta
-              </a>
-              <a href="#aluguel" className="text-black hover:text-blue-700 transition">
-                Aluguel
-              </a>
-            </div>
-          </nav>
-        )}
       </header>
 
-      {/* Main Content */}
+      {/* Mobile Menu */}
+      {mobileMenuOpen && (
+        <div className="md:hidden bg-white border-b border-gray-200 p-4">
+          <nav className="flex flex-col gap-4">
+            <a href="#home" className="text-black hover:text-blue-700 transition">
+              Home
+            </a>
+            <a href="#lancamentos" className="text-black hover:text-blue-700 transition">
+              Compra na Planta
+            </a>
+            <a href="#aluguel" className="text-black hover:text-blue-700 transition">
+              Aluguel
+            </a>
+          </nav>
+        </div>
+      )}
+
       <main className="flex-1">
         {/* Carousel Section */}
-        <section id="home" className="relative h-96 md:h-[500px] bg-gray-900 overflow-hidden">
-          {carrosselData.length > 0 ? (
+        <section id="home" className="relative h-96 md:h-screen overflow-hidden">
+          {currentCarrossel && (
             <>
-              {/* Slides */}
-              {carrosselData.map((slide, idx) => (
-                <div
-                  key={slide.id}
-                  className={`absolute inset-0 transition-opacity duration-1000 ${
-                    idx === currentSlide ? "opacity-100" : "opacity-0"
-                  }`}
-                >
-                  {slide.imagemUrl ? (
-                    <img
-                      src={slide.imagemUrl}
-                      alt={slide.titulo}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full bg-gradient-to-r from-blue-700 to-blue-900 flex items-center justify-center">
-                      <div className="text-center text-white">
-                        <h2 className="text-4xl font-bold mb-4">{slide.titulo}</h2>
-                        <p className="text-lg text-gray-200">{slide.descricao}</p>
-                      </div>
-                    </div>
-                  )}
+              <img
+                src={currentCarrossel.imagemUrl || "https://images.unsplash.com/photo-1486325212027-8081e485255e?w=1200&h=600&fit=crop"}
+                alt={currentCarrossel.titulo}
+                className="w-full h-full object-cover"
+              />
+              <div className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center text-center">
+                <h1 className="text-3xl md:text-5xl font-bold text-white mb-4">
+                  {currentCarrossel.titulo}
+                </h1>
+                <p className="text-lg md:text-xl text-white mb-8 max-w-2xl px-4">
+                  {currentCarrossel.descricao}
+                </p>
+                <Button className="bg-blue-700 hover:bg-blue-800 text-white px-8 py-3">
+                  Saiba Mais
+                </Button>
+              </div>
 
-                  {/* Overlay with content */}
-                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                    <div className="text-center text-white">
-                      <h2 className="text-4xl md:text-5xl font-bold mb-4">
-                        {slide.titulo}
-                      </h2>
-                      <p className="text-lg md:text-xl text-gray-200 mb-8">
-                        {slide.descricao}
-                      </p>
-                      <Button className="bg-blue-700 hover:bg-blue-800 text-white">
-                        Saiba Mais
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-
-              {/* Navigation Arrows */}
+              {/* Carousel Controls */}
               <button
                 onClick={handlePrevSlide}
-                className="absolute left-4 top-1/2 -translate-y-1/2 z-10 bg-white/80 hover:bg-white p-2 rounded-full transition"
+                className="absolute left-4 top-1/2 transform -translate-y-1/2 bg-white/80 hover:bg-white text-black p-2 rounded-full z-10"
               >
-                <ChevronLeft size={24} className="text-black" />
+                <ChevronLeft size={24} />
               </button>
               <button
                 onClick={handleNextSlide}
-                className="absolute right-4 top-1/2 -translate-y-1/2 z-10 bg-white/80 hover:bg-white p-2 rounded-full transition"
+                className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-white/80 hover:bg-white text-black p-2 rounded-full z-10"
               >
-                <ChevronRight size={24} className="text-black" />
+                <ChevronRight size={24} />
               </button>
 
-              {/* Indicators */}
-              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 flex gap-2">
-                {carrosselData.map((_, idx) => (
+              {/* Carousel Indicators */}
+              <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex gap-2 z-10">
+                {carrosselData.map((_, index) => (
                   <button
-                    key={idx}
-                    onClick={() => setCurrentSlide(idx)}
+                    key={index}
+                    onClick={() => setCurrentSlide(index)}
                     className={`w-3 h-3 rounded-full transition ${
-                      idx === currentSlide ? "bg-white" : "bg-white/50"
+                      index === currentSlide ? "bg-white" : "bg-white/50"
                     }`}
                   />
                 ))}
               </div>
             </>
-          ) : (
-            <div className="w-full h-full bg-gradient-to-r from-blue-700 to-blue-900 flex items-center justify-center">
-              <div className="text-center text-white">
-                <h2 className="text-4xl font-bold mb-4">Bem-vindo à Lobianco</h2>
-                <p className="text-lg text-gray-200">Investimentos Imobiliários</p>
-              </div>
-            </div>
           )}
         </section>
 

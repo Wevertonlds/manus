@@ -34,6 +34,9 @@ export default function AdminModal({ isOpen, onClose }: AdminModalProps) {
   // Config state
   const [quemSomos, setQuemSomos] = useState("");
   const [primaryColor, setPrimaryColor] = useState("#1E40AF");
+  const [whatsapp, setWhatsapp] = useState("");
+  const [facebook, setFacebook] = useState("");
+  const [instagram, setInstagram] = useState("");
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState("");
   const [bannerFile, setBannerFile] = useState<File | null>(null);
@@ -41,6 +44,7 @@ export default function AdminModal({ isOpen, onClose }: AdminModalProps) {
 
   // Queries
   const { data: configData, refetch: refetchConfig } = trpc.config.get.useQuery();
+  const { data: settingsData, refetch: refetchSettings } = trpc.settings.get.useQuery();
   const { data: carrosselData = [], refetch: refetchCarrossel } = trpc.carrossel.list.useQuery();
   const { data: investimentosData = [], refetch: refetchInvestimentos } = trpc.investimentos.list.useQuery();
 
@@ -48,13 +52,25 @@ export default function AdminModal({ isOpen, onClose }: AdminModalProps) {
   const createCarrossel = trpc.carrossel.create.useMutation();
   const updateCarrosselMut = trpc.carrossel.update.useMutation();
   const deleteCarrosselMut = trpc.carrossel.delete.useMutation();
-  
   const createInvestimento = trpc.investimentos.create.useMutation();
   const updateInvestimentoMut = trpc.investimentos.update.useMutation();
   const deleteInvestimentoMut = trpc.investimentos.delete.useMutation();
-  
-  const updateConfig = trpc.config.update.useMutation();
+  const updateConfigMut = trpc.config.update.useMutation();
+  const updateSettingsMut = trpc.settings.update.useMutation();
   const uploadFile = trpc.storage.uploadFile.useMutation();
+
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => {
+        const result = reader.result as string;
+        const base64 = result.split(",")[1];
+        resolve(base64);
+      };
+      reader.onerror = reject;
+    });
+  };
 
   const handleImageChange = (
     e: React.ChangeEvent<HTMLInputElement>,
@@ -72,22 +88,10 @@ export default function AdminModal({ isOpen, onClose }: AdminModalProps) {
     }
   };
 
-  const fileToBase64 = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = () => {
-        const result = reader.result as string;
-        const base64 = result.split(",")[1];
-        resolve(base64);
-      };
-      reader.onerror = reject;
-    });
-  };
-
+  // Carrossel handlers
   const handleAddCarrossel = async () => {
-    if (!carrosselTitle || !carrosselDesc) {
-      toast.error("Preencha todos os campos");
+    if (!carrosselTitle) {
+      toast.error("Preencha o título");
       return;
     }
 
@@ -117,7 +121,7 @@ export default function AdminModal({ isOpen, onClose }: AdminModalProps) {
           descricao: carrosselDesc,
           imagemUrl: imageUrl,
         });
-        toast.success("Slide atualizado com sucesso!");
+        toast.success("Slide atualizado!");
         setEditingId(null);
       } else {
         await createCarrossel.mutateAsync({
@@ -125,7 +129,7 @@ export default function AdminModal({ isOpen, onClose }: AdminModalProps) {
           descricao: carrosselDesc,
           imagemUrl: imageUrl,
         });
-        toast.success("Slide adicionado com sucesso!");
+        toast.success("Slide adicionado!");
       }
 
       setCarrosselTitle("");
@@ -141,32 +145,21 @@ export default function AdminModal({ isOpen, onClose }: AdminModalProps) {
     }
   };
 
-  const handleEditCarrossel = (slide: any) => {
-    setEditingId(slide.id);
-    setCarrosselTitle(slide.titulo);
-    setCarrosselDesc(slide.descricao);
-    setCarrosselImagePreview(slide.imagemUrl || "");
-  };
-
   const handleDeleteCarrossel = async (id: number) => {
-    if (!confirm("Tem certeza que deseja excluir este slide?")) return;
-    
-    setIsLoading(true);
+    if (!confirm("Tem certeza?")) return;
     try {
       await deleteCarrosselMut.mutateAsync({ id });
-      toast.success("Slide excluído com sucesso!");
+      toast.success("Slide excluído!");
       refetchCarrossel();
     } catch (error) {
-      toast.error("Erro ao excluir slide");
-      console.error(error);
-    } finally {
-      setIsLoading(false);
+      toast.error("Erro ao excluir");
     }
   };
 
+  // Investimentos handlers
   const handleAddInvestimento = async () => {
-    if (!investTitle || !investDesc) {
-      toast.error("Preencha todos os campos");
+    if (!investTitle) {
+      toast.error("Preencha o título");
       return;
     }
 
@@ -197,7 +190,7 @@ export default function AdminModal({ isOpen, onClose }: AdminModalProps) {
           descricao: investDesc,
           imagemUrl: imageUrl,
         });
-        toast.success("Investimento atualizado com sucesso!");
+        toast.success("Investimento atualizado!");
         setEditingId(null);
       } else {
         await createInvestimento.mutateAsync({
@@ -206,11 +199,12 @@ export default function AdminModal({ isOpen, onClose }: AdminModalProps) {
           descricao: investDesc,
           imagemUrl: imageUrl,
         });
-        toast.success("Investimento adicionado com sucesso!");
+        toast.success("Investimento adicionado!");
       }
 
       setInvestTitle("");
       setInvestDesc("");
+      setInvestType("lancamentos");
       setInvestImage(null);
       setInvestImagePreview("");
       refetchInvestimentos();
@@ -222,44 +216,46 @@ export default function AdminModal({ isOpen, onClose }: AdminModalProps) {
     }
   };
 
-  const handleEditInvestimento = (invest: any) => {
-    setEditingId(invest.id);
-    setInvestTitle(invest.titulo);
-    setInvestDesc(invest.descricao);
-    setInvestType(invest.tipo);
-    setInvestImagePreview(invest.imagemUrl || "");
-  };
-
   const handleDeleteInvestimento = async (id: number) => {
-    if (!confirm("Tem certeza que deseja excluir este investimento?")) return;
-    
-    setIsLoading(true);
+    if (!confirm("Tem certeza?")) return;
     try {
       await deleteInvestimentoMut.mutateAsync({ id });
-      toast.success("Investimento excluído com sucesso!");
+      toast.success("Investimento excluído!");
       refetchInvestimentos();
     } catch (error) {
-      toast.error("Erro ao excluir investimento");
-      console.error(error);
+      toast.error("Erro ao excluir");
+    }
+  };
+
+  // Config handlers
+  const handleUpdateConfig = async () => {
+    setIsLoading(true);
+    try {
+      await updateConfigMut.mutateAsync({
+        quemSomos: quemSomos || configData?.quemSomos || "",
+        corPrimaria: primaryColor,
+      });
+      toast.success("Configurações atualizadas!");
+      refetchConfig();
+    } catch (error) {
+      toast.error("Erro ao atualizar");
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleUpdateConfig = async () => {
+  const handleUpdateSettings = async () => {
     setIsLoading(true);
     try {
-      await updateConfig.mutateAsync({
-        quemSomos: quemSomos || configData?.quemSomos || "",
-        corPrimaria: primaryColor,
-        tamanho: 16,
-      } as any);
-
-      toast.success("Configurações atualizadas com sucesso!");
-      refetchConfig();
+      await updateSettingsMut.mutateAsync({
+        whatsapp: whatsapp || settingsData?.whatsapp || "",
+        facebook: facebook || settingsData?.facebook || "",
+        instagram: instagram || settingsData?.instagram || "",
+      });
+      toast.success("Redes sociais atualizadas!");
+      refetchSettings();
     } catch (error) {
-      toast.error("Erro ao atualizar configurações");
-      console.error(error);
+      toast.error("Erro ao atualizar");
     } finally {
       setIsLoading(false);
     }
@@ -267,275 +263,172 @@ export default function AdminModal({ isOpen, onClose }: AdminModalProps) {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-screen overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Área de Gestão</DialogTitle>
         </DialogHeader>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="carrossel">Carrossel</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="carrossel">Slides</TabsTrigger>
             <TabsTrigger value="investimentos">Investimentos</TabsTrigger>
             <TabsTrigger value="config">Configurações</TabsTrigger>
+            <TabsTrigger value="redes">Redes Sociais</TabsTrigger>
           </TabsList>
 
           {/* Carrossel Tab */}
           <TabsContent value="carrossel" className="space-y-4">
             <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-2">Título</label>
-                <Input
-                  value={carrosselTitle}
-                  onChange={(e) => setCarrosselTitle(e.target.value)}
-                  placeholder="Ex: Oportunidade de Ouro"
-                />
+              <Input
+                placeholder="Título do slide"
+                value={carrosselTitle}
+                onChange={(e) => setCarrosselTitle(e.target.value)}
+              />
+              <Textarea
+                placeholder="Descrição"
+                value={carrosselDesc}
+                onChange={(e) => setCarrosselDesc(e.target.value)}
+              />
+
+              <div className="border-2 border-dashed rounded-lg p-4">
+                {carrosselImagePreview ? (
+                  <div className="relative">
+                    <img src={carrosselImagePreview} alt="Preview" className="max-h-32 rounded" />
+                    <button
+                      onClick={() => {
+                        setCarrosselImage(null);
+                        setCarrosselImagePreview("");
+                      }}
+                      className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                ) : (
+                  <label className="cursor-pointer flex flex-col items-center gap-2">
+                    <Upload size={24} />
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => handleImageChange(e, setCarrosselImage, setCarrosselImagePreview)}
+                      className="hidden"
+                    />
+                  </label>
+                )}
               </div>
 
-              <div>
-                <label className="block text-sm font-medium mb-2">Descrição</label>
-                <Textarea
-                  value={carrosselDesc}
-                  onChange={(e) => setCarrosselDesc(e.target.value)}
-                  placeholder="Descrição do slide"
-                  rows={3}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-2">Imagem</label>
-                <div className="border-2 border-dashed rounded-lg p-4">
-                  {carrosselImagePreview ? (
-                    <div className="relative">
-                      <img
-                        src={carrosselImagePreview}
-                        alt="Preview"
-                        className="max-h-48 rounded"
-                      />
-                      <button
-                        onClick={() => {
-                          setCarrosselImage(null);
-                          setCarrosselImagePreview("");
-                        }}
-                        className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded"
-                      >
-                        <X size={16} />
-                      </button>
-                    </div>
-                  ) : (
-                    <label className="cursor-pointer flex flex-col items-center gap-2">
-                      <Upload size={24} />
-                      <span className="text-sm">Clique para fazer upload</span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={(e) =>
-                          handleImageChange(e, setCarrosselImage, setCarrosselImagePreview)
-                        }
-                        className="hidden"
-                      />
-                    </label>
-                  )}
-                </div>
-              </div>
-
-              <Button
-                onClick={handleAddCarrossel}
-                disabled={isLoading}
-                className="w-full"
-              >
+              <Button onClick={handleAddCarrossel} disabled={isLoading} className="w-full">
                 {isLoading ? <Loader2 className="animate-spin mr-2" /> : null}
                 {editingId ? "Atualizar Slide" : "Adicionar Slide"}
               </Button>
+            </div>
 
-              {editingId && (
-                <Button
-                  onClick={() => {
-                    setEditingId(null);
-                    setCarrosselTitle("");
-                    setCarrosselDesc("");
-                    setCarrosselImage(null);
-                    setCarrosselImagePreview("");
-                  }}
-                  variant="outline"
-                  className="w-full"
-                >
-                  Cancelar Edição
-                </Button>
-              )}
-
-              <div className="mt-6">
-                <h3 className="font-semibold mb-3">Slides Atuais</h3>
-                <div className="space-y-2 max-h-48 overflow-y-auto">
-                  {carrosselData.map((slide) => (
-                    <div key={slide.id} className="p-3 bg-gray-100 rounded flex justify-between items-start">
-                      <div className="flex-1">
-                        <p className="font-medium">{slide.titulo}</p>
-                        <p className="text-sm text-gray-600">{slide.descricao}</p>
-                        {slide.imagemUrl && (
-                          <img src={slide.imagemUrl} alt={slide.titulo} className="max-h-20 mt-2 rounded" />
-                        )}
-                      </div>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => handleEditCarrossel(slide)}
-                          className="p-2 hover:bg-blue-100 rounded"
-                        >
-                          <Edit2 size={16} className="text-blue-600" />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteCarrossel(slide.id)}
-                          className="p-2 hover:bg-red-100 rounded"
-                        >
-                          <Trash2 size={16} className="text-red-600" />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
+            <div className="space-y-2 max-h-48 overflow-y-auto">
+              {carrosselData.map((item) => (
+                <div key={item.id} className="p-3 bg-gray-100 rounded flex justify-between items-center">
+                  <div>
+                    <p className="font-medium">{item.titulo}</p>
+                    {item.imagemUrl && <img src={item.imagemUrl} alt={item.titulo} className="max-h-12 mt-1 rounded" />}
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={() => { setEditingId(item.id); setCarrosselTitle(item.titulo); setCarrosselDesc(item.descricao || ""); setCarrosselImagePreview(item.imagemUrl || ""); }} className="p-2 hover:bg-blue-100 rounded">
+                      <Edit2 size={16} className="text-blue-600" />
+                    </button>
+                    <button onClick={() => handleDeleteCarrossel(item.id)} className="p-2 hover:bg-red-100 rounded">
+                      <Trash2 size={16} className="text-red-600" />
+                    </button>
+                  </div>
                 </div>
-              </div>
+              ))}
             </div>
           </TabsContent>
 
           {/* Investimentos Tab */}
           <TabsContent value="investimentos" className="space-y-4">
             <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-2">Tipo</label>
-                <select
-                  value={investType}
-                  onChange={(e) => setInvestType(e.target.value)}
-                  className="w-full border rounded px-3 py-2"
-                >
-                  <option value="lancamentos">Lançamentos</option>
-                  <option value="na_planta">Na Planta</option>
-                  <option value="aluguel">Aluguel</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-2">Título</label>
-                <Input
-                  value={investTitle}
-                  onChange={(e) => setInvestTitle(e.target.value)}
-                  placeholder="Ex: Residencial Premium"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-2">Descrição</label>
-                <Textarea
-                  value={investDesc}
-                  onChange={(e) => setInvestDesc(e.target.value)}
-                  placeholder="Descrição do investimento"
-                  rows={3}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-2">Imagem</label>
-                <div className="border-2 border-dashed rounded-lg p-4">
-                  {investImagePreview ? (
-                    <div className="relative">
-                      <img
-                        src={investImagePreview}
-                        alt="Preview"
-                        className="max-h-48 rounded"
-                      />
-                      <button
-                        onClick={() => {
-                          setInvestImage(null);
-                          setInvestImagePreview("");
-                        }}
-                        className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded"
-                      >
-                        <X size={16} />
-                      </button>
-                    </div>
-                  ) : (
-                    <label className="cursor-pointer flex flex-col items-center gap-2">
-                      <Upload size={24} />
-                      <span className="text-sm">Clique para fazer upload</span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={(e) =>
-                          handleImageChange(e, setInvestImage, setInvestImagePreview)
-                        }
-                        className="hidden"
-                      />
-                    </label>
-                  )}
-                </div>
-              </div>
-
-              <Button
-                onClick={handleAddInvestimento}
-                disabled={isLoading}
-                className="w-full"
+              <Input
+                placeholder="Título"
+                value={investTitle}
+                onChange={(e) => setInvestTitle(e.target.value)}
+              />
+              <select
+                value={investType}
+                onChange={(e) => setInvestType(e.target.value)}
+                className="w-full border rounded px-3 py-2"
               >
+                <option value="lancamentos">Lançamentos</option>
+                <option value="na_planta">Na Planta</option>
+                <option value="aluguel">Aluguel</option>
+              </select>
+              <Textarea
+                placeholder="Descrição"
+                value={investDesc}
+                onChange={(e) => setInvestDesc(e.target.value)}
+              />
+
+              <div className="border-2 border-dashed rounded-lg p-4">
+                {investImagePreview ? (
+                  <div className="relative">
+                    <img src={investImagePreview} alt="Preview" className="max-h-32 rounded" />
+                    <button
+                      onClick={() => {
+                        setInvestImage(null);
+                        setInvestImagePreview("");
+                      }}
+                      className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                ) : (
+                  <label className="cursor-pointer flex flex-col items-center gap-2">
+                    <Upload size={24} />
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => handleImageChange(e, setInvestImage, setInvestImagePreview)}
+                      className="hidden"
+                    />
+                  </label>
+                )}
+              </div>
+
+              <Button onClick={handleAddInvestimento} disabled={isLoading} className="w-full">
                 {isLoading ? <Loader2 className="animate-spin mr-2" /> : null}
                 {editingId ? "Atualizar Investimento" : "Adicionar Investimento"}
               </Button>
+            </div>
 
-              {editingId && (
-                <Button
-                  onClick={() => {
-                    setEditingId(null);
-                    setInvestTitle("");
-                    setInvestDesc("");
-                    setInvestImage(null);
-                    setInvestImagePreview("");
-                  }}
-                  variant="outline"
-                  className="w-full"
-                >
-                  Cancelar Edição
-                </Button>
-              )}
-
-              <div className="mt-6">
-                <h3 className="font-semibold mb-3">Investimentos Atuais</h3>
-                <div className="space-y-2 max-h-48 overflow-y-auto">
-                  {investimentosData.map((invest) => (
-                    <div key={invest.id} className="p-3 bg-gray-100 rounded flex justify-between items-start">
-                      <div className="flex-1">
-                        <p className="font-medium">{invest.titulo}</p>
-                        <p className="text-xs text-gray-500 mb-1">{invest.tipo}</p>
-                        <p className="text-sm text-gray-600">{invest.descricao}</p>
-                        {invest.imagemUrl && (
-                          <img src={invest.imagemUrl} alt={invest.titulo} className="max-h-20 mt-2 rounded" />
-                        )}
-                      </div>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => handleEditInvestimento(invest)}
-                          className="p-2 hover:bg-blue-100 rounded"
-                        >
-                          <Edit2 size={16} className="text-blue-600" />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteInvestimento(invest.id)}
-                          className="p-2 hover:bg-red-100 rounded"
-                        >
-                          <Trash2 size={16} className="text-red-600" />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
+            <div className="space-y-2 max-h-48 overflow-y-auto">
+              {investimentosData.map((item) => (
+                <div key={item.id} className="p-3 bg-gray-100 rounded flex justify-between items-center">
+                  <div>
+                    <p className="font-medium">{item.titulo}</p>
+                    <p className="text-xs text-gray-500">{item.tipo}</p>
+                    {item.imagemUrl && <img src={item.imagemUrl} alt={item.titulo} className="max-h-12 mt-1 rounded" />}
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={() => { setEditingId(item.id); setInvestTitle(item.titulo); setInvestDesc(item.descricao || ""); setInvestType(item.tipo || "lancamentos"); setInvestImagePreview(item.imagemUrl || ""); }} className="p-2 hover:bg-blue-100 rounded">
+                      <Edit2 size={16} className="text-blue-600" />
+                    </button>
+                    <button onClick={() => handleDeleteInvestimento(item.id)} className="p-2 hover:bg-red-100 rounded">
+                      <Trash2 size={16} className="text-red-600" />
+                    </button>
+                  </div>
                 </div>
-              </div>
+              ))}
             </div>
           </TabsContent>
 
-          {/* Config Tab */}
+          {/* Configurações Tab */}
           <TabsContent value="config" className="space-y-4">
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium mb-2">Quem Somos</label>
                 <Textarea
+                  placeholder="Descrição da empresa"
                   value={quemSomos || configData?.quemSomos || ""}
                   onChange={(e) => setQuemSomos(e.target.value)}
-                  placeholder="Descrição da empresa"
                   rows={4}
                 />
               </div>
@@ -547,28 +440,57 @@ export default function AdminModal({ isOpen, onClose }: AdminModalProps) {
                     type="color"
                     value={primaryColor}
                     onChange={(e) => setPrimaryColor(e.target.value)}
-                    className="w-12 h-10 rounded"
+                    className="w-16 h-10 rounded cursor-pointer"
                   />
-                  <Input value={primaryColor} readOnly />
+                  <Input
+                    value={primaryColor}
+                    onChange={(e) => setPrimaryColor(e.target.value)}
+                    placeholder="#1E40AF"
+                  />
                 </div>
               </div>
 
-              <Button
-                onClick={handleUpdateConfig}
-                disabled={isLoading}
-                className="w-full"
-              >
+              <Button onClick={handleUpdateConfig} disabled={isLoading} className="w-full">
                 {isLoading ? <Loader2 className="animate-spin mr-2" /> : null}
                 Salvar Configurações
               </Button>
+            </div>
+          </TabsContent>
 
-              {configData && (
-                <div className="mt-6 p-4 bg-blue-50 rounded">
-                  <h3 className="font-semibold mb-2">Configurações Atuais</h3>
-                  <p className="text-sm"><strong>Quem Somos:</strong> {configData.quemSomos}</p>
-                  <p className="text-sm"><strong>Cor Primária:</strong> {configData.corPrimaria}</p>
-                </div>
-              )}
+          {/* Redes Sociais Tab */}
+          <TabsContent value="redes" className="space-y-4">
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">WhatsApp</label>
+                <Input
+                  placeholder="Ex: 5511999999999"
+                  value={whatsapp || settingsData?.whatsapp || ""}
+                  onChange={(e) => setWhatsapp(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">Facebook</label>
+                <Input
+                  placeholder="Ex: https://facebook.com/seu-perfil"
+                  value={facebook || settingsData?.facebook || ""}
+                  onChange={(e) => setFacebook(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">Instagram</label>
+                <Input
+                  placeholder="Ex: https://instagram.com/seu-perfil"
+                  value={instagram || settingsData?.instagram || ""}
+                  onChange={(e) => setInstagram(e.target.value)}
+                />
+              </div>
+
+              <Button onClick={handleUpdateSettings} disabled={isLoading} className="w-full">
+                {isLoading ? <Loader2 className="animate-spin mr-2" /> : null}
+                Salvar Redes Sociais
+              </Button>
             </div>
           </TabsContent>
         </Tabs>

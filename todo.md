@@ -32,12 +32,17 @@
 - [x] Implementar design mobile-first
 - [x] Adicionar logo do Lobianco
 
+## Ajustes Finais
+- [x] Adicionar campos Instagram, Facebook e WhatsApp no modal de configuração
+- [x] Expandir modal "Ver Mais" com detalhes completos (endereço, banheiro, piscina, etc)
+- [x] Remover login do header, deixar apenas no footer
+
 ## Testes & Deploy
-- [ ] Testar funcionalidades no localhost
-- [ ] Testar login/cadastro
-- [ ] Testar upload de imagens
-- [ ] Testar edição de conteúdo
-- [ ] Criar checkpoint para deploy
+- [x] Testar funcionalidades no localhost
+- [x] Testar login/cadastro
+- [x] Testar upload de imagens
+- [x] Testar edição de conteúdo
+- [x] Criar checkpoint para deploy
 - [ ] Deploy no Vercel (via Publish)
 
 
