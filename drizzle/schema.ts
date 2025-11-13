@@ -38,13 +38,25 @@ export const carrossel = mysqlTable("carrossel", {
 export type Carrossel = typeof carrossel.$inferSelect;
 export type InsertCarrossel = typeof carrossel.$inferInsert;
 
-// Tabela para cards de investimentos
+// Tabela para cards de investimentos com detalhes completos
 export const investimentos = mysqlTable("investimentos", {
   id: int("id").autoincrement().primaryKey(),
   tipo: mysqlEnum("tipo", ["lancamentos", "na_planta", "aluguel"]).notNull(),
   titulo: text("titulo").notNull(),
   descricao: text("descricao"),
   imagemUrl: text("imagemUrl"),
+  endereco: text("endereco"),
+  areaMt2: int("area_m2"),
+  banheiros: int("banheiros"),
+  quartos: int("quartos"),
+  suites: int("suites"),
+  garagem: int("garagem"),
+  piscina: int("piscina").default(0),
+  academia: int("academia").default(0),
+  churrasqueira: int("churrasqueira").default(0),
+  condominio: int("condominio"),
+  iptu: int("iptu"),
+  preco: int("preco"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
@@ -66,6 +78,7 @@ export const config = mysqlTable("config", {
 
 export type Config = typeof config.$inferSelect;
 export type InsertConfig = typeof config.$inferInsert;
+
 // Properties table for real estate listings
 export const properties = mysqlTable("properties", {
   id: int("id").autoincrement().primaryKey(),
@@ -99,8 +112,9 @@ export const settings = mysqlTable("settings", {
   whatsapp: varchar("whatsapp", { length: 255 }),
   facebook: varchar("facebook", { length: 255 }),
   instagram: varchar("instagram", { length: 255 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
 
-export type Setting = typeof settings.$inferSelect;
-export type InsertSetting = typeof settings.$inferInsert;
+export type Settings = typeof settings.$inferSelect;
+export type InsertSettings = typeof settings.$inferInsert;

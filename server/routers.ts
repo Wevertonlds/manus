@@ -16,6 +16,8 @@ import {
   deleteInvestimento,
   getConfig,
   updateConfig,
+  getSettings,
+  updateSettings,
 } from "./db";
 
 export const appRouter = router({
@@ -78,6 +80,18 @@ export const appRouter = router({
         titulo: z.string(),
         descricao: z.string().optional(),
         imagemUrl: z.string().optional(),
+        endereco: z.string().optional().nullable(),
+        areaMt2: z.number().optional().nullable(),
+        banheiros: z.number().optional().nullable(),
+        quartos: z.number().optional().nullable(),
+        suites: z.number().optional().nullable(),
+        garagem: z.number().optional().nullable(),
+        piscina: z.number().optional().default(0),
+        academia: z.number().optional().default(0),
+        churrasqueira: z.number().optional().default(0),
+        condominio: z.number().optional().nullable(),
+        iptu: z.number().optional().nullable(),
+        preco: z.number().optional().nullable(),
       }))
       .mutation(async ({ input, ctx }) => {
         if (ctx.user.role !== 'admin') throw new TRPCError({ code: 'FORBIDDEN' });
@@ -90,6 +104,18 @@ export const appRouter = router({
         titulo: z.string().optional(),
         descricao: z.string().optional(),
         imagemUrl: z.string().optional(),
+        endereco: z.string().optional().nullable(),
+        areaMt2: z.number().optional().nullable(),
+        banheiros: z.number().optional().nullable(),
+        quartos: z.number().optional().nullable(),
+        suites: z.number().optional().nullable(),
+        garagem: z.number().optional().nullable(),
+        piscina: z.number().optional(),
+        academia: z.number().optional(),
+        churrasqueira: z.number().optional(),
+        condominio: z.number().optional().nullable(),
+        iptu: z.number().optional().nullable(),
+        preco: z.number().optional().nullable(),
       }))
       .mutation(async ({ input, ctx }) => {
         if (ctx.user.role !== 'admin') throw new TRPCError({ code: 'FORBIDDEN' });
@@ -104,7 +130,7 @@ export const appRouter = router({
       }),
   }),
 
-  // Routers para Config
+  // Routers para Configurações
   config: router({
     get: publicProcedure.query(async () => {
       return getConfig();
@@ -113,7 +139,6 @@ export const appRouter = router({
       .input(z.object({
         quemSomos: z.string().optional(),
         corPrimaria: z.string().optional(),
-        tamanho: z.number().optional(),
       }))
       .mutation(async ({ input, ctx }) => {
         if (ctx.user.role !== 'admin') throw new TRPCError({ code: 'FORBIDDEN' });
@@ -121,83 +146,9 @@ export const appRouter = router({
       }),
   }),
 
-  // Routers para Properties (Imóveis)
-  properties: router({
-    list: publicProcedure.query(async () => {
-      const { getProperties } = await import("./db");
-      return getProperties();
-    }),
-    getById: publicProcedure
-      .input(z.object({ id: z.number() }))
-      .query(async ({ input }) => {
-        const { getPropertyById } = await import("./db");
-        return getPropertyById(input.id);
-      }),
-    create: protectedProcedure
-      .input(z.object({
-        title: z.string(),
-        description: z.string().optional(),
-        location: z.string().optional(),
-        price: z.number().optional(),
-        areaMt2: z.number().optional(),
-        bedrooms: z.number().optional(),
-        bathrooms: z.number().optional(),
-        suites: z.number().optional(),
-        garage: z.number().optional(),
-        pool: z.number().optional(),
-        gym: z.number().optional(),
-        bbq: z.number().optional(),
-        condominium: z.number().optional(),
-        iptu: z.number().optional(),
-        yearBuilt: z.number().optional(),
-        type: z.string().optional(),
-        mainImage: z.string().optional(),
-      }))
-      .mutation(async ({ input, ctx }) => {
-        if (ctx.user.role !== 'admin') throw new TRPCError({ code: 'FORBIDDEN' });
-        const { createProperty } = await import("./db");
-        return createProperty(input);
-      }),
-    update: protectedProcedure
-      .input(z.object({
-        id: z.number(),
-        title: z.string().optional(),
-        description: z.string().optional(),
-        location: z.string().optional(),
-        price: z.number().optional(),
-        areaMt2: z.number().optional(),
-        bedrooms: z.number().optional(),
-        bathrooms: z.number().optional(),
-        suites: z.number().optional(),
-        garage: z.number().optional(),
-        pool: z.number().optional(),
-        gym: z.number().optional(),
-        bbq: z.number().optional(),
-        condominium: z.number().optional(),
-        iptu: z.number().optional(),
-        yearBuilt: z.number().optional(),
-        type: z.string().optional(),
-        mainImage: z.string().optional(),
-      }))
-      .mutation(async ({ input, ctx }) => {
-        if (ctx.user.role !== 'admin') throw new TRPCError({ code: 'FORBIDDEN' });
-        const { id, ...data } = input;
-        const { updateProperty } = await import("./db");
-        return updateProperty(id, data);
-      }),
-    delete: protectedProcedure
-      .input(z.object({ id: z.number() }))
-      .mutation(async ({ input, ctx }) => {
-        if (ctx.user.role !== 'admin') throw new TRPCError({ code: 'FORBIDDEN' });
-        const { deleteProperty } = await import("./db");
-        return deleteProperty(input.id);
-      }),
-  }),
-
   // Routers para Settings (Redes Sociais)
   settings: router({
     get: publicProcedure.query(async () => {
-      const { getSettings } = await import("./db");
       return getSettings();
     }),
     update: protectedProcedure
@@ -208,7 +159,6 @@ export const appRouter = router({
       }))
       .mutation(async ({ input, ctx }) => {
         if (ctx.user.role !== 'admin') throw new TRPCError({ code: 'FORBIDDEN' });
-        const { updateSettings } = await import("./db");
         return updateSettings(input);
       }),
   }),

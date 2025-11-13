@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users, Carrossel, InsertCarrossel, Investimento, InsertInvestimento, InsertConfig, carrossel, investimentos, config, properties, InsertProperty, Property, settings, InsertSetting, Setting } from "../drizzle/schema";
+import { InsertUser, users, Carrossel, InsertCarrossel, Investimento, InsertInvestimento, InsertConfig, carrossel, investimentos, config, properties, InsertProperty, Property, settings, InsertSettings, Settings } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;

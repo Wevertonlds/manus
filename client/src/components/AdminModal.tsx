@@ -30,6 +30,18 @@ export default function AdminModal({ isOpen, onClose }: AdminModalProps) {
   const [investType, setInvestType] = useState("lancamentos");
   const [investImage, setInvestImage] = useState<File | null>(null);
   const [investImagePreview, setInvestImagePreview] = useState("");
+  const [investEndereco, setInvestEndereco] = useState("");
+  const [investAreaMt2, setInvestAreaMt2] = useState("");
+  const [investBanheiros, setInvestBanheiros] = useState("");
+  const [investQuartos, setInvestQuartos] = useState("");
+  const [investSuites, setInvestSuites] = useState("");
+  const [investGaragem, setInvestGaragem] = useState("");
+  const [investPiscina, setInvestPiscina] = useState(0);
+  const [investAcademia, setInvestAcademia] = useState(0);
+  const [investChurrasqueira, setInvestChurrasqueira] = useState(0);
+  const [investCondominio, setInvestCondominio] = useState("");
+  const [investIptu, setInvestIptu] = useState("");
+  const [investPreco, setInvestPreco] = useState("");
 
   // Config state
   const [quemSomos, setQuemSomos] = useState("");
@@ -37,10 +49,6 @@ export default function AdminModal({ isOpen, onClose }: AdminModalProps) {
   const [whatsapp, setWhatsapp] = useState("");
   const [facebook, setFacebook] = useState("");
   const [instagram, setInstagram] = useState("");
-  const [logoFile, setLogoFile] = useState<File | null>(null);
-  const [logoPreview, setLogoPreview] = useState("");
-  const [bannerFile, setBannerFile] = useState<File | null>(null);
-  const [bannerPreview, setBannerPreview] = useState("");
 
   // Queries
   const { data: configData, refetch: refetchConfig } = trpc.config.get.useQuery();
@@ -189,6 +197,18 @@ export default function AdminModal({ isOpen, onClose }: AdminModalProps) {
           titulo: investTitle,
           descricao: investDesc,
           imagemUrl: imageUrl,
+          endereco: investEndereco || null,
+          areaMt2: investAreaMt2 ? parseInt(investAreaMt2) : null,
+          banheiros: investBanheiros ? parseInt(investBanheiros) : null,
+          quartos: investQuartos ? parseInt(investQuartos) : null,
+          suites: investSuites ? parseInt(investSuites) : null,
+          garagem: investGaragem ? parseInt(investGaragem) : null,
+          piscina: investPiscina,
+          academia: investAcademia,
+          churrasqueira: investChurrasqueira,
+          condominio: investCondominio ? parseInt(investCondominio) : null,
+          iptu: investIptu ? parseInt(investIptu) : null,
+          preco: investPreco ? parseInt(investPreco) : null,
         });
         toast.success("Investimento atualizado!");
         setEditingId(null);
@@ -198,6 +218,18 @@ export default function AdminModal({ isOpen, onClose }: AdminModalProps) {
           titulo: investTitle,
           descricao: investDesc,
           imagemUrl: imageUrl,
+          endereco: investEndereco || null,
+          areaMt2: investAreaMt2 ? parseInt(investAreaMt2) : null,
+          banheiros: investBanheiros ? parseInt(investBanheiros) : null,
+          quartos: investQuartos ? parseInt(investQuartos) : null,
+          suites: investSuites ? parseInt(investSuites) : null,
+          garagem: investGaragem ? parseInt(investGaragem) : null,
+          piscina: investPiscina,
+          academia: investAcademia,
+          churrasqueira: investChurrasqueira,
+          condominio: investCondominio ? parseInt(investCondominio) : null,
+          iptu: investIptu ? parseInt(investIptu) : null,
+          preco: investPreco ? parseInt(investPreco) : null,
         });
         toast.success("Investimento adicionado!");
       }
@@ -207,6 +239,18 @@ export default function AdminModal({ isOpen, onClose }: AdminModalProps) {
       setInvestType("lancamentos");
       setInvestImage(null);
       setInvestImagePreview("");
+      setInvestEndereco("");
+      setInvestAreaMt2("");
+      setInvestBanheiros("");
+      setInvestQuartos("");
+      setInvestSuites("");
+      setInvestGaragem("");
+      setInvestPiscina(0);
+      setInvestAcademia(0);
+      setInvestChurrasqueira(0);
+      setInvestCondominio("");
+      setInvestIptu("");
+      setInvestPreco("");
       refetchInvestimentos();
     } catch (error) {
       toast.error("Erro ao salvar investimento");
@@ -263,7 +307,7 @@ export default function AdminModal({ isOpen, onClose }: AdminModalProps) {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-screen overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-screen overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Área de Gestão</DialogTitle>
         </DialogHeader>
@@ -344,7 +388,7 @@ export default function AdminModal({ isOpen, onClose }: AdminModalProps) {
           </TabsContent>
 
           {/* Investimentos Tab */}
-          <TabsContent value="investimentos" className="space-y-4">
+          <TabsContent value="investimentos" className="space-y-4 max-h-96 overflow-y-auto">
             <div className="space-y-4">
               <Input
                 placeholder="Título"
@@ -365,6 +409,92 @@ export default function AdminModal({ isOpen, onClose }: AdminModalProps) {
                 value={investDesc}
                 onChange={(e) => setInvestDesc(e.target.value)}
               />
+
+              {/* Detalhes do Imóvel */}
+              <div className="bg-blue-50 p-4 rounded-lg space-y-3">
+                <h4 className="font-bold text-sm">Detalhes do Imóvel</h4>
+                <Input
+                  placeholder="Endereço"
+                  value={investEndereco}
+                  onChange={(e) => setInvestEndereco(e.target.value)}
+                />
+                <div className="grid grid-cols-2 gap-2">
+                  <Input
+                    placeholder="Área (m²)"
+                    type="number"
+                    value={investAreaMt2}
+                    onChange={(e) => setInvestAreaMt2(e.target.value)}
+                  />
+                  <Input
+                    placeholder="Preço"
+                    type="number"
+                    value={investPreco}
+                    onChange={(e) => setInvestPreco(e.target.value)}
+                  />
+                  <Input
+                    placeholder="Quartos"
+                    type="number"
+                    value={investQuartos}
+                    onChange={(e) => setInvestQuartos(e.target.value)}
+                  />
+                  <Input
+                    placeholder="Banheiros"
+                    type="number"
+                    value={investBanheiros}
+                    onChange={(e) => setInvestBanheiros(e.target.value)}
+                  />
+                  <Input
+                    placeholder="Suítes"
+                    type="number"
+                    value={investSuites}
+                    onChange={(e) => setInvestSuites(e.target.value)}
+                  />
+                  <Input
+                    placeholder="Garagem"
+                    type="number"
+                    value={investGaragem}
+                    onChange={(e) => setInvestGaragem(e.target.value)}
+                  />
+                  <Input
+                    placeholder="Condomínio"
+                    type="number"
+                    value={investCondominio}
+                    onChange={(e) => setInvestCondominio(e.target.value)}
+                  />
+                  <Input
+                    placeholder="IPTU"
+                    type="number"
+                    value={investIptu}
+                    onChange={(e) => setInvestIptu(e.target.value)}
+                  />
+                </div>
+                <div className="flex gap-4">
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={investPiscina === 1}
+                      onChange={(e) => setInvestPiscina(e.target.checked ? 1 : 0)}
+                    />
+                    Piscina
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={investAcademia === 1}
+                      onChange={(e) => setInvestAcademia(e.target.checked ? 1 : 0)}
+                    />
+                    Academia
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={investChurrasqueira === 1}
+                      onChange={(e) => setInvestChurrasqueira(e.target.checked ? 1 : 0)}
+                    />
+                    Churrasqueira
+                  </label>
+                </div>
+              </div>
 
               <div className="border-2 border-dashed rounded-lg p-4">
                 {investImagePreview ? (
@@ -408,7 +538,7 @@ export default function AdminModal({ isOpen, onClose }: AdminModalProps) {
                     {item.imagemUrl && <img src={item.imagemUrl} alt={item.titulo} className="max-h-12 mt-1 rounded" />}
                   </div>
                   <div className="flex gap-2">
-                    <button onClick={() => { setEditingId(item.id); setInvestTitle(item.titulo); setInvestDesc(item.descricao || ""); setInvestType(item.tipo || "lancamentos"); setInvestImagePreview(item.imagemUrl || ""); }} className="p-2 hover:bg-blue-100 rounded">
+                    <button onClick={() => { setEditingId(item.id); setInvestTitle(item.titulo); setInvestDesc(item.descricao || ""); setInvestType(item.tipo || "lancamentos"); setInvestImagePreview(item.imagemUrl || ""); setInvestEndereco(item.endereco || ""); setInvestAreaMt2(item.areaMt2?.toString() || ""); setInvestBanheiros(item.banheiros?.toString() || ""); setInvestQuartos(item.quartos?.toString() || ""); setInvestSuites(item.suites?.toString() || ""); setInvestGaragem(item.garagem?.toString() || ""); setInvestPiscina(item.piscina || 0); setInvestAcademia(item.academia || 0); setInvestChurrasqueira(item.churrasqueira || 0); setInvestCondominio(item.condominio?.toString() || ""); setInvestIptu(item.iptu?.toString() || ""); setInvestPreco(item.preco?.toString() || ""); }} className="p-2 hover:bg-blue-100 rounded">
                       <Edit2 size={16} className="text-blue-600" />
                     </button>
                     <button onClick={() => handleDeleteInvestimento(item.id)} className="p-2 hover:bg-red-100 rounded">

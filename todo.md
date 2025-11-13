@@ -55,3 +55,10 @@
 - [ ] Remover "Área de Gestão" do header
 - [ ] Testar upload de imagens para Supabase Storage
 - [ ] Testar CRUD completo com Supabase
+
+
+## Novas Funcionalidades Solicitadas
+- [x] Adicionar campos de detalhes do imóvel (endereço, banheiro, piscina, garagem, etc)
+- [x] Criar modal de login obrigatório para acessar "Área de Gestão"
+- [x] Proteger AdminModal com autenticação
+- [x] Fazer commit das mudanças
