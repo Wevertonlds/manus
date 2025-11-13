@@ -57,8 +57,8 @@ export default function AdminModal({ isOpen, onClose }: AdminModalProps) {
       reader.onload = async (event) => {
         const base64 = event.target?.result as string;
         const result = await uploadMutation.mutateAsync({
-          fileName: file.name,
-          fileData: base64,
+          filename: file.name,
+          fileBase64: base64,
           bucket: "investimentos",
         });
         setFormData({ ...formData, imagemUrl: result.url });
