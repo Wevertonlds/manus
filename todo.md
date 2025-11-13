@@ -22,9 +22,9 @@
 - [x] Implementar upload de fotos para S3 Storage
 - [x] Implementar edição de textos e configurações
 - [x] Implementar proteção de rotas (RLS)
-- [ ] Implementar CRUD completo para Carrossel (editar e excluir slides)
-- [ ] Implementar CRUD completo para Investimentos
-- [ ] Implementar CRUD completo para Configurações
+- [x] Implementar CRUD completo para Carrossel (editar e excluir slides)
+- [x] Implementar CRUD completo para Investimentos
+- [x] Implementar CRUD completo para Configurações
 
 ## Design & Estilo
 - [x] Definir paleta de cores (preto #000000, azul #1E40AF, branco #FFFFFF, cinza #F3F4F6, vermelho #DC2626)

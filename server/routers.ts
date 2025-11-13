@@ -120,6 +120,98 @@ export const appRouter = router({
         return updateConfig(input);
       }),
   }),
+
+  // Routers para Properties (Imóveis)
+  properties: router({
+    list: publicProcedure.query(async () => {
+      const { getProperties } = await import("./db");
+      return getProperties();
+    }),
+    getById: publicProcedure
+      .input(z.object({ id: z.number() }))
+      .query(async ({ input }) => {
+        const { getPropertyById } = await import("./db");
+        return getPropertyById(input.id);
+      }),
+    create: protectedProcedure
+      .input(z.object({
+        title: z.string(),
+        description: z.string().optional(),
+        location: z.string().optional(),
+        price: z.number().optional(),
+        areaMt2: z.number().optional(),
+        bedrooms: z.number().optional(),
+        bathrooms: z.number().optional(),
+        suites: z.number().optional(),
+        garage: z.number().optional(),
+        pool: z.number().optional(),
+        gym: z.number().optional(),
+        bbq: z.number().optional(),
+        condominium: z.number().optional(),
+        iptu: z.number().optional(),
+        yearBuilt: z.number().optional(),
+        type: z.string().optional(),
+        mainImage: z.string().optional(),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        if (ctx.user.role !== 'admin') throw new TRPCError({ code: 'FORBIDDEN' });
+        const { createProperty } = await import("./db");
+        return createProperty(input);
+      }),
+    update: protectedProcedure
+      .input(z.object({
+        id: z.number(),
+        title: z.string().optional(),
+        description: z.string().optional(),
+        location: z.string().optional(),
+        price: z.number().optional(),
+        areaMt2: z.number().optional(),
+        bedrooms: z.number().optional(),
+        bathrooms: z.number().optional(),
+        suites: z.number().optional(),
+        garage: z.number().optional(),
+        pool: z.number().optional(),
+        gym: z.number().optional(),
+        bbq: z.number().optional(),
+        condominium: z.number().optional(),
+        iptu: z.number().optional(),
+        yearBuilt: z.number().optional(),
+        type: z.string().optional(),
+        mainImage: z.string().optional(),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        if (ctx.user.role !== 'admin') throw new TRPCError({ code: 'FORBIDDEN' });
+        const { id, ...data } = input;
+        const { updateProperty } = await import("./db");
+        return updateProperty(id, data);
+      }),
+    delete: protectedProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input, ctx }) => {
+        if (ctx.user.role !== 'admin') throw new TRPCError({ code: 'FORBIDDEN' });
+        const { deleteProperty } = await import("./db");
+        return deleteProperty(input.id);
+      }),
+  }),
+
+  // Routers para Settings (Redes Sociais)
+  settings: router({
+    get: publicProcedure.query(async () => {
+      const { getSettings } = await import("./db");
+      return getSettings();
+    }),
+    update: protectedProcedure
+      .input(z.object({
+        whatsapp: z.string().optional(),
+        facebook: z.string().optional(),
+        instagram: z.string().optional(),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        if (ctx.user.role !== 'admin') throw new TRPCError({ code: 'FORBIDDEN' });
+        const { updateSettings } = await import("./db");
+        return updateSettings(input);
+      }),
+  }),
 });
 
 export type AppRouter = typeof appRouter;

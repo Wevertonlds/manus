@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users, Carrossel, InsertCarrossel, Investimento, InsertInvestimento, InsertConfig, carrossel, investimentos, config } from "../drizzle/schema";
+import { InsertUser, users, Carrossel, InsertCarrossel, Investimento, InsertInvestimento, InsertConfig, carrossel, investimentos, config, properties, InsertProperty, Property, settings, InsertSetting, Setting } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -187,3 +187,54 @@ export async function updateConfig(data: Partial<InsertConfig>) {
 }
 
 
+
+// Properties queries
+export async function getProperties() {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(properties);
+}
+
+export async function getPropertyById(id: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db.select().from(properties).where(eq(properties.id, id)).limit(1);
+  return result.length > 0 ? result[0] : null;
+}
+
+export async function createProperty(data: InsertProperty) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.insert(properties).values(data);
+}
+
+export async function updateProperty(id: number, data: Partial<InsertProperty>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(properties).set(data).where(eq(properties.id, id));
+}
+
+export async function deleteProperty(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.delete(properties).where(eq(properties.id, id));
+}
+
+// Settings queries
+export async function getSettings() {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db.select().from(settings).limit(1);
+  return result.length > 0 ? result[0] : null;
+}
+
+export async function updateSettings(data: Partial<InsertSetting>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const existing = await getSettings();
+  if (existing) {
+    await db.update(settings).set(data).where(eq(settings.id, existing.id));
+  } else {
+    await db.insert(settings).values(data as InsertSetting);
+  }
+}

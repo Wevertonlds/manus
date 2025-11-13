@@ -66,3 +66,41 @@ export const config = mysqlTable("config", {
 
 export type Config = typeof config.$inferSelect;
 export type InsertConfig = typeof config.$inferInsert;
+// Properties table for real estate listings
+export const properties = mysqlTable("properties", {
+  id: int("id").autoincrement().primaryKey(),
+  title: text("title").notNull(),
+  description: text("description"),
+  location: text("location"),
+  price: int("price"),
+  areaMt2: int("area_m2"),
+  bedrooms: int("bedrooms"),
+  bathrooms: int("bathrooms"),
+  suites: int("suites"),
+  garage: int("garage"),
+  pool: int("pool").default(0),
+  gym: int("gym").default(0),
+  bbq: int("bbq").default(0),
+  condominium: int("condominium"),
+  iptu: int("iptu"),
+  yearBuilt: int("year_built"),
+  type: varchar("type", { length: 64 }),
+  mainImage: text("main_image"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type Property = typeof properties.$inferSelect;
+export type InsertProperty = typeof properties.$inferInsert;
+
+// Settings table for social media links
+export const settings = mysqlTable("settings", {
+  id: int("id").autoincrement().primaryKey(),
+  whatsapp: varchar("whatsapp", { length: 255 }),
+  facebook: varchar("facebook", { length: 255 }),
+  instagram: varchar("instagram", { length: 255 }),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type Setting = typeof settings.$inferSelect;
+export type InsertSetting = typeof settings.$inferInsert;
