@@ -1,138 +1,123 @@
-var __defProp = Object.defineProperty;
-var __getOwnPropNames = Object.getOwnPropertyNames;
-var __esm = (fn, res) => function __init() {
-  return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
-};
-var __export = (target, all) => {
-  for (var name in all)
-    __defProp(target, name, { get: all[name], enumerable: true });
-};
+// server/_core/index.ts
+import "dotenv/config";
+import express2 from "express";
+import { createServer } from "http";
+import net from "net";
+import { createExpressMiddleware } from "@trpc/server/adapters/express";
+
+// shared/const.ts
+var COOKIE_NAME = "app_session_id";
+var ONE_YEAR_MS = 1e3 * 60 * 60 * 24 * 365;
+var AXIOS_TIMEOUT_MS = 3e4;
+var UNAUTHED_ERR_MSG = "Please login (10001)";
+var NOT_ADMIN_ERR_MSG = "You do not have required permission (10002)";
+
+// server/db.ts
+import { eq } from "drizzle-orm";
+import { drizzle } from "drizzle-orm/mysql2";
 
 // drizzle/schema.ts
 import { int, mysqlEnum, mysqlTable, text, timestamp, varchar } from "drizzle-orm/mysql-core";
-var users, carrossel, investimentos, config, properties, settings;
-var init_schema = __esm({
-  "drizzle/schema.ts"() {
-    "use strict";
-    users = mysqlTable("users", {
-      /**
-       * Surrogate primary key. Auto-incremented numeric value managed by the database.
-       * Use this for relations between tables.
-       */
-      id: int("id").autoincrement().primaryKey(),
-      /** Manus OAuth identifier (openId) returned from the OAuth callback. Unique per user. */
-      openId: varchar("openId", { length: 64 }).notNull().unique(),
-      name: text("name"),
-      email: varchar("email", { length: 320 }),
-      loginMethod: varchar("loginMethod", { length: 64 }),
-      role: mysqlEnum("role", ["user", "admin"]).default("user").notNull(),
-      createdAt: timestamp("createdAt").defaultNow().notNull(),
-      updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
-      lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull()
-    });
-    carrossel = mysqlTable("carrossel", {
-      id: int("id").autoincrement().primaryKey(),
-      titulo: text("titulo").notNull(),
-      descricao: text("descricao"),
-      imagemUrl: text("imagemUrl"),
-      createdAt: timestamp("createdAt").defaultNow().notNull(),
-      updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull()
-    });
-    investimentos = mysqlTable("investimentos", {
-      id: int("id").autoincrement().primaryKey(),
-      tipo: mysqlEnum("tipo", ["lancamentos", "na_planta", "aluguel"]).notNull(),
-      titulo: text("titulo").notNull(),
-      descricao: text("descricao"),
-      imagemUrl: text("imagemUrl"),
-      createdAt: timestamp("createdAt").defaultNow().notNull(),
-      updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull()
-    });
-    config = mysqlTable("config", {
-      id: int("id").autoincrement().primaryKey(),
-      quemSomos: text("quemSomos"),
-      corPrimaria: varchar("corPrimaria", { length: 7 }),
-      tamanho: int("tamanho").default(16),
-      logo: text("logo"),
-      banner: text("banner"),
-      createdAt: timestamp("createdAt").defaultNow().notNull(),
-      updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull()
-    });
-    properties = mysqlTable("properties", {
-      id: int("id").autoincrement().primaryKey(),
-      title: text("title").notNull(),
-      description: text("description"),
-      location: text("location"),
-      price: int("price"),
-      areaMt2: int("area_m2"),
-      bedrooms: int("bedrooms"),
-      bathrooms: int("bathrooms"),
-      suites: int("suites"),
-      garage: int("garage"),
-      pool: int("pool").default(0),
-      gym: int("gym").default(0),
-      bbq: int("bbq").default(0),
-      condominium: int("condominium"),
-      iptu: int("iptu"),
-      yearBuilt: int("year_built"),
-      type: varchar("type", { length: 64 }),
-      mainImage: text("main_image"),
-      createdAt: timestamp("createdAt").defaultNow().notNull(),
-      updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull()
-    });
-    settings = mysqlTable("settings", {
-      id: int("id").autoincrement().primaryKey(),
-      whatsapp: varchar("whatsapp", { length: 255 }),
-      facebook: varchar("facebook", { length: 255 }),
-      instagram: varchar("instagram", { length: 255 }),
-      updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull()
-    });
-  }
+var users = mysqlTable("users", {
+  /**
+   * Surrogate primary key. Auto-incremented numeric value managed by the database.
+   * Use this for relations between tables.
+   */
+  id: int("id").autoincrement().primaryKey(),
+  /** Manus OAuth identifier (openId) returned from the OAuth callback. Unique per user. */
+  openId: varchar("openId", { length: 64 }).notNull().unique(),
+  name: text("name"),
+  email: varchar("email", { length: 320 }),
+  loginMethod: varchar("loginMethod", { length: 64 }),
+  role: mysqlEnum("role", ["user", "admin"]).default("user").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull()
+});
+var carrossel = mysqlTable("carrossel", {
+  id: int("id").autoincrement().primaryKey(),
+  titulo: text("titulo").notNull(),
+  descricao: text("descricao"),
+  imagemUrl: text("imagemUrl"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull()
+});
+var investimentos = mysqlTable("investimentos", {
+  id: int("id").autoincrement().primaryKey(),
+  tipo: mysqlEnum("tipo", ["lancamentos", "na_planta", "aluguel"]).notNull(),
+  titulo: text("titulo").notNull(),
+  descricao: text("descricao"),
+  imagemUrl: text("imagemUrl"),
+  endereco: text("endereco"),
+  areaMt2: int("area_m2"),
+  banheiros: int("banheiros"),
+  quartos: int("quartos"),
+  suites: int("suites"),
+  garagem: int("garagem"),
+  piscina: int("piscina").default(0),
+  academia: int("academia").default(0),
+  churrasqueira: int("churrasqueira").default(0),
+  condominio: int("condominio"),
+  iptu: int("iptu"),
+  preco: int("preco"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull()
+});
+var config = mysqlTable("config", {
+  id: int("id").autoincrement().primaryKey(),
+  quemSomos: text("quemSomos"),
+  corPrimaria: varchar("corPrimaria", { length: 7 }),
+  tamanho: int("tamanho").default(16),
+  logo: text("logo"),
+  banner: text("banner"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull()
+});
+var properties = mysqlTable("properties", {
+  id: int("id").autoincrement().primaryKey(),
+  title: text("title").notNull(),
+  description: text("description"),
+  location: text("location"),
+  price: int("price"),
+  areaMt2: int("area_m2"),
+  bedrooms: int("bedrooms"),
+  bathrooms: int("bathrooms"),
+  suites: int("suites"),
+  garage: int("garage"),
+  pool: int("pool").default(0),
+  gym: int("gym").default(0),
+  bbq: int("bbq").default(0),
+  condominium: int("condominium"),
+  iptu: int("iptu"),
+  yearBuilt: int("year_built"),
+  type: varchar("type", { length: 64 }),
+  mainImage: text("main_image"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull()
+});
+var settings = mysqlTable("settings", {
+  id: int("id").autoincrement().primaryKey(),
+  whatsapp: varchar("whatsapp", { length: 255 }),
+  facebook: varchar("facebook", { length: 255 }),
+  instagram: varchar("instagram", { length: 255 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull()
 });
 
 // server/_core/env.ts
-var ENV;
-var init_env = __esm({
-  "server/_core/env.ts"() {
-    "use strict";
-    ENV = {
-      appId: process.env.VITE_APP_ID ?? "",
-      cookieSecret: process.env.JWT_SECRET ?? "",
-      databaseUrl: process.env.DATABASE_URL ?? "",
-      oAuthServerUrl: process.env.OAUTH_SERVER_URL ?? "",
-      ownerOpenId: process.env.OWNER_OPEN_ID ?? "",
-      isProduction: process.env.NODE_ENV === "production",
-      forgeApiUrl: process.env.BUILT_IN_FORGE_API_URL ?? "",
-      forgeApiKey: process.env.BUILT_IN_FORGE_API_KEY ?? ""
-    };
-  }
-});
+var ENV = {
+  appId: process.env.VITE_APP_ID ?? "",
+  cookieSecret: process.env.JWT_SECRET ?? "",
+  databaseUrl: process.env.DATABASE_URL ?? "",
+  oAuthServerUrl: process.env.OAUTH_SERVER_URL ?? "",
+  ownerOpenId: process.env.OWNER_OPEN_ID ?? "",
+  isProduction: process.env.NODE_ENV === "production",
+  forgeApiUrl: process.env.BUILT_IN_FORGE_API_URL ?? "",
+  forgeApiKey: process.env.BUILT_IN_FORGE_API_KEY ?? ""
+};
 
 // server/db.ts
-var db_exports = {};
-__export(db_exports, {
-  createCarrossel: () => createCarrossel,
-  createInvestimento: () => createInvestimento,
-  createProperty: () => createProperty,
-  deleteCarrossel: () => deleteCarrossel,
-  deleteInvestimento: () => deleteInvestimento,
-  deleteProperty: () => deleteProperty,
-  getCarrossel: () => getCarrossel,
-  getConfig: () => getConfig,
-  getDb: () => getDb,
-  getInvestimentos: () => getInvestimentos,
-  getProperties: () => getProperties,
-  getPropertyById: () => getPropertyById,
-  getSettings: () => getSettings,
-  getUserByOpenId: () => getUserByOpenId,
-  updateCarrossel: () => updateCarrossel,
-  updateConfig: () => updateConfig,
-  updateInvestimento: () => updateInvestimento,
-  updateProperty: () => updateProperty,
-  updateSettings: () => updateSettings,
-  upsertUser: () => upsertUser
-});
-import { eq } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/mysql2";
+var _db = null;
 async function getDb() {
   if (!_db && process.env.DATABASE_URL) {
     try {
@@ -281,32 +266,6 @@ async function updateConfig(data) {
     return await db.insert(config).values(data);
   }
 }
-async function getProperties() {
-  const db = await getDb();
-  if (!db) return [];
-  return db.select().from(properties);
-}
-async function getPropertyById(id) {
-  const db = await getDb();
-  if (!db) return null;
-  const result = await db.select().from(properties).where(eq(properties.id, id)).limit(1);
-  return result.length > 0 ? result[0] : null;
-}
-async function createProperty(data) {
-  const db = await getDb();
-  if (!db) throw new Error("Database not available");
-  await db.insert(properties).values(data);
-}
-async function updateProperty(id, data) {
-  const db = await getDb();
-  if (!db) throw new Error("Database not available");
-  await db.update(properties).set(data).where(eq(properties.id, id));
-}
-async function deleteProperty(id) {
-  const db = await getDb();
-  if (!db) throw new Error("Database not available");
-  await db.delete(properties).where(eq(properties.id, id));
-}
 async function getSettings() {
   const db = await getDb();
   if (!db) return null;
@@ -323,32 +282,6 @@ async function updateSettings(data) {
     await db.insert(settings).values(data);
   }
 }
-var _db;
-var init_db = __esm({
-  "server/db.ts"() {
-    "use strict";
-    init_schema();
-    init_env();
-    _db = null;
-  }
-});
-
-// server/_core/index.ts
-import "dotenv/config";
-import express2 from "express";
-import { createServer } from "http";
-import net from "net";
-import { createExpressMiddleware } from "@trpc/server/adapters/express";
-
-// shared/const.ts
-var COOKIE_NAME = "app_session_id";
-var ONE_YEAR_MS = 1e3 * 60 * 60 * 24 * 365;
-var AXIOS_TIMEOUT_MS = 3e4;
-var UNAUTHED_ERR_MSG = "Please login (10001)";
-var NOT_ADMIN_ERR_MSG = "You do not have required permission (10002)";
-
-// server/_core/oauth.ts
-init_db();
 
 // server/_core/cookies.ts
 function isSecureRequest(req) {
@@ -378,8 +311,6 @@ var HttpError = class extends Error {
 var ForbiddenError = (msg) => new HttpError(403, msg);
 
 // server/_core/sdk.ts
-init_db();
-init_env();
 import axios from "axios";
 import { parse as parseCookieHeader } from "cookie";
 import { SignJWT, jwtVerify } from "jose";
@@ -641,7 +572,6 @@ function registerOAuthRoutes(app) {
 import { z } from "zod";
 
 // server/_core/notification.ts
-init_env();
 import { TRPCError } from "@trpc/server";
 var TITLE_MAX_LENGTH = 1200;
 var CONTENT_MAX_LENGTH = 2e4;
@@ -846,7 +776,6 @@ var storageRouter = router({
 });
 
 // server/routers.ts
-init_db();
 var appRouter = router({
   system: systemRouter,
   storage: storageRouter,
@@ -897,7 +826,19 @@ var appRouter = router({
       tipo: z3.enum(["lancamentos", "na_planta", "aluguel"]),
       titulo: z3.string(),
       descricao: z3.string().optional(),
-      imagemUrl: z3.string().optional()
+      imagemUrl: z3.string().optional(),
+      endereco: z3.string().optional().nullable(),
+      areaMt2: z3.number().optional().nullable(),
+      banheiros: z3.number().optional().nullable(),
+      quartos: z3.number().optional().nullable(),
+      suites: z3.number().optional().nullable(),
+      garagem: z3.number().optional().nullable(),
+      piscina: z3.number().optional().default(0),
+      academia: z3.number().optional().default(0),
+      churrasqueira: z3.number().optional().default(0),
+      condominio: z3.number().optional().nullable(),
+      iptu: z3.number().optional().nullable(),
+      preco: z3.number().optional().nullable()
     })).mutation(async ({ input, ctx }) => {
       if (ctx.user.role !== "admin") throw new TRPCError4({ code: "FORBIDDEN" });
       return createInvestimento(input);
@@ -907,7 +848,19 @@ var appRouter = router({
       tipo: z3.enum(["lancamentos", "na_planta", "aluguel"]).optional(),
       titulo: z3.string().optional(),
       descricao: z3.string().optional(),
-      imagemUrl: z3.string().optional()
+      imagemUrl: z3.string().optional(),
+      endereco: z3.string().optional().nullable(),
+      areaMt2: z3.number().optional().nullable(),
+      banheiros: z3.number().optional().nullable(),
+      quartos: z3.number().optional().nullable(),
+      suites: z3.number().optional().nullable(),
+      garagem: z3.number().optional().nullable(),
+      piscina: z3.number().optional(),
+      academia: z3.number().optional(),
+      churrasqueira: z3.number().optional(),
+      condominio: z3.number().optional().nullable(),
+      iptu: z3.number().optional().nullable(),
+      preco: z3.number().optional().nullable()
     })).mutation(async ({ input, ctx }) => {
       if (ctx.user.role !== "admin") throw new TRPCError4({ code: "FORBIDDEN" });
       const { id, ...data } = input;
@@ -918,89 +871,23 @@ var appRouter = router({
       return deleteInvestimento(input.id);
     })
   }),
-  // Routers para Config
+  // Routers para Configurações
   config: router({
     get: publicProcedure.query(async () => {
       return getConfig();
     }),
     update: protectedProcedure.input(z3.object({
       quemSomos: z3.string().optional(),
-      corPrimaria: z3.string().optional(),
-      tamanho: z3.number().optional()
+      corPrimaria: z3.string().optional()
     })).mutation(async ({ input, ctx }) => {
       if (ctx.user.role !== "admin") throw new TRPCError4({ code: "FORBIDDEN" });
       return updateConfig(input);
     })
   }),
-  // Routers para Properties (Imóveis)
-  properties: router({
-    list: publicProcedure.query(async () => {
-      const { getProperties: getProperties2 } = await Promise.resolve().then(() => (init_db(), db_exports));
-      return getProperties2();
-    }),
-    getById: publicProcedure.input(z3.object({ id: z3.number() })).query(async ({ input }) => {
-      const { getPropertyById: getPropertyById2 } = await Promise.resolve().then(() => (init_db(), db_exports));
-      return getPropertyById2(input.id);
-    }),
-    create: protectedProcedure.input(z3.object({
-      title: z3.string(),
-      description: z3.string().optional(),
-      location: z3.string().optional(),
-      price: z3.number().optional(),
-      areaMt2: z3.number().optional(),
-      bedrooms: z3.number().optional(),
-      bathrooms: z3.number().optional(),
-      suites: z3.number().optional(),
-      garage: z3.number().optional(),
-      pool: z3.number().optional(),
-      gym: z3.number().optional(),
-      bbq: z3.number().optional(),
-      condominium: z3.number().optional(),
-      iptu: z3.number().optional(),
-      yearBuilt: z3.number().optional(),
-      type: z3.string().optional(),
-      mainImage: z3.string().optional()
-    })).mutation(async ({ input, ctx }) => {
-      if (ctx.user.role !== "admin") throw new TRPCError4({ code: "FORBIDDEN" });
-      const { createProperty: createProperty2 } = await Promise.resolve().then(() => (init_db(), db_exports));
-      return createProperty2(input);
-    }),
-    update: protectedProcedure.input(z3.object({
-      id: z3.number(),
-      title: z3.string().optional(),
-      description: z3.string().optional(),
-      location: z3.string().optional(),
-      price: z3.number().optional(),
-      areaMt2: z3.number().optional(),
-      bedrooms: z3.number().optional(),
-      bathrooms: z3.number().optional(),
-      suites: z3.number().optional(),
-      garage: z3.number().optional(),
-      pool: z3.number().optional(),
-      gym: z3.number().optional(),
-      bbq: z3.number().optional(),
-      condominium: z3.number().optional(),
-      iptu: z3.number().optional(),
-      yearBuilt: z3.number().optional(),
-      type: z3.string().optional(),
-      mainImage: z3.string().optional()
-    })).mutation(async ({ input, ctx }) => {
-      if (ctx.user.role !== "admin") throw new TRPCError4({ code: "FORBIDDEN" });
-      const { id, ...data } = input;
-      const { updateProperty: updateProperty2 } = await Promise.resolve().then(() => (init_db(), db_exports));
-      return updateProperty2(id, data);
-    }),
-    delete: protectedProcedure.input(z3.object({ id: z3.number() })).mutation(async ({ input, ctx }) => {
-      if (ctx.user.role !== "admin") throw new TRPCError4({ code: "FORBIDDEN" });
-      const { deleteProperty: deleteProperty2 } = await Promise.resolve().then(() => (init_db(), db_exports));
-      return deleteProperty2(input.id);
-    })
-  }),
   // Routers para Settings (Redes Sociais)
   settings: router({
     get: publicProcedure.query(async () => {
-      const { getSettings: getSettings2 } = await Promise.resolve().then(() => (init_db(), db_exports));
-      return getSettings2();
+      return getSettings();
     }),
     update: protectedProcedure.input(z3.object({
       whatsapp: z3.string().optional(),
@@ -1008,8 +895,7 @@ var appRouter = router({
       instagram: z3.string().optional()
     })).mutation(async ({ input, ctx }) => {
       if (ctx.user.role !== "admin") throw new TRPCError4({ code: "FORBIDDEN" });
-      const { updateSettings: updateSettings2 } = await Promise.resolve().then(() => (init_db(), db_exports));
-      return updateSettings2(input);
+      return updateSettings(input);
     })
   })
 });
