@@ -70,3 +70,12 @@
 - [x] Criar SETUP_LOCAL.md com guia passo a passo
 - [x] Ajustar configurações para suportar ambiente local
 - [x] Fazer commit
+
+
+## Novas Funcionalidades - Login e Navegação
+- [x] Criar modal de login com senha para "Área de Gestão"
+- [x] Proteger AdminModal com autenticação de senha
+- [x] Criar seções "Compra", "Compra na Planta" e "Aluguel" na mesma página
+- [x] Implementar scroll suave para seções ao clicar nos links
+- [x] Ajustar navegação do header para scroll nas seções
+- [x] Atualizar gestão para gerenciar as 3 categorias
