@@ -40,9 +40,9 @@ export default function AdminModal({ isOpen, onClose }: AdminModalProps) {
   const uploadMutation = trpc.storage.uploadFile.useMutation();
 
   const typeMap = {
-    compra: "LANÇAMENTOS",
-    "compra-planta": "NA_PLANTA",
-    aluguel: "ALUGUEL",
+    compra: "lancamentos",
+    "compra-planta": "na_planta",
+    aluguel: "aluguel",
   };
 
   const currentType = typeMap[activeTab as keyof typeof typeMap];
@@ -77,12 +77,18 @@ export default function AdminModal({ isOpen, onClose }: AdminModalProps) {
           id: editingId,
           ...formData,
           tipo: currentType,
+          piscina: formData.piscina ? 1 : 0,
+          academia: formData.academia ? 1 : 0,
+          churrasqueira: formData.churrasqueira ? 1 : 0,
         });
         toast.success("Investimento atualizado!");
       } else {
         await createMutation.mutateAsync({
           ...formData,
           tipo: currentType,
+          piscina: formData.piscina ? 1 : 0,
+          academia: formData.academia ? 1 : 0,
+          churrasqueira: formData.churrasqueira ? 1 : 0,
         });
         toast.success("Investimento criado!");
       }
