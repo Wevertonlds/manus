@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -6,7 +6,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
-import { uploadFile } from "@/lib/supabase";
 import { Loader2, Upload, X } from "lucide-react";
 
 interface AdminModalProps {
@@ -32,7 +31,6 @@ export default function AdminModal({ isOpen, onClose }: AdminModalProps) {
   const [investImagePreview, setInvestImagePreview] = useState("");
 
   // Config state
-  const [siteTitle, setSiteTitle] = useState("");
   const [quemSomos, setQuemSomos] = useState("");
   const [primaryColor, setPrimaryColor] = useState("#1E40AF");
   const [logoFile, setLogoFile] = useState<File | null>(null);
@@ -49,6 +47,7 @@ export default function AdminModal({ isOpen, onClose }: AdminModalProps) {
   const createCarrossel = trpc.carrossel.create.useMutation();
   const createInvestimento = trpc.investimentos.create.useMutation();
   const updateConfig = trpc.config.update.useMutation();
+  const uploadFile = trpc.storage.uploadFile.useMutation();
 
   const handleImageChange = (
     e: React.ChangeEvent<HTMLInputElement>,
@@ -66,6 +65,19 @@ export default function AdminModal({ isOpen, onClose }: AdminModalProps) {
     }
   };
 
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => {
+        const result = reader.result as string;
+        const base64 = result.split(",")[1];
+        resolve(base64);
+      };
+      reader.onerror = reject;
+    });
+  };
+
   const handleAddCarrossel = async () => {
     if (!carrosselTitle || !carrosselDesc) {
       toast.error("Preencha todos os campos");
@@ -77,11 +89,12 @@ export default function AdminModal({ isOpen, onClose }: AdminModalProps) {
       let imageUrl = carrosselImagePreview;
 
       if (carrosselImage) {
-        const result = await uploadFile(
-          "carrossel",
-          `${Date.now()}-${carrosselImage.name}`,
-          carrosselImage
-        );
+        const base64 = await fileToBase64(carrosselImage);
+        const result = await uploadFile.mutateAsync({
+          bucket: "carrossel",
+          filename: carrosselImage.name,
+          fileBase64: base64,
+        });
         if (!result) {
           toast.error("Erro ao fazer upload da imagem");
           setIsLoading(false);
@@ -120,11 +133,12 @@ export default function AdminModal({ isOpen, onClose }: AdminModalProps) {
       let imageUrl = investImagePreview;
 
       if (investImage) {
-        const result = await uploadFile(
-          "investimentos",
-          `${Date.now()}-${investImage.name}`,
-          investImage
-        );
+        const base64 = await fileToBase64(investImage);
+        const result = await uploadFile.mutateAsync({
+          bucket: "investimentos",
+          filename: investImage.name,
+          fileBase64: base64,
+        });
         if (!result) {
           toast.error("Erro ao fazer upload da imagem");
           setIsLoading(false);
@@ -160,22 +174,24 @@ export default function AdminModal({ isOpen, onClose }: AdminModalProps) {
       let bannerUrl = bannerPreview;
 
       if (logoFile) {
-        const result = await uploadFile(
-          "config",
-          `logo-${Date.now()}.${logoFile.name.split(".").pop()}`,
-          logoFile
-        );
+        const base64 = await fileToBase64(logoFile);
+        const result = await uploadFile.mutateAsync({
+          bucket: "config",
+          filename: `logo-${Date.now()}.${logoFile.name.split(".").pop()}`,
+          fileBase64: base64,
+        });
         if (result) {
           logoUrl = result.url;
         }
       }
 
       if (bannerFile) {
-        const result = await uploadFile(
-          "config",
-          `banner-${Date.now()}.${bannerFile.name.split(".").pop()}`,
-          bannerFile
-        );
+        const base64 = await fileToBase64(bannerFile);
+        const result = await uploadFile.mutateAsync({
+          bucket: "config",
+          filename: `banner-${Date.now()}.${bannerFile.name.split(".").pop()}`,
+          fileBase64: base64,
+        });
         if (result) {
           bannerUrl = result.url;
         }
@@ -185,8 +201,6 @@ export default function AdminModal({ isOpen, onClose }: AdminModalProps) {
         quemSomos: quemSomos || configData?.quemSomos || "",
         corPrimaria: primaryColor,
         tamanho: 16,
-        ...(logoUrl && { logo: logoUrl }),
-        ...(bannerUrl && { banner: bannerUrl }),
       } as any);
 
       toast.success("Configurações atualizadas com sucesso!");
@@ -383,7 +397,6 @@ export default function AdminModal({ isOpen, onClose }: AdminModalProps) {
                   {investimentosData.map((invest) => (
                     <div key={invest.id} className="p-3 bg-gray-100 rounded">
                       <p className="font-medium">{invest.titulo}</p>
-                      <p className="text-xs text-blue-600">{invest.tipo.toUpperCase()}</p>
                       <p className="text-sm text-gray-600">{invest.descricao}</p>
                     </div>
                   ))}
@@ -392,9 +405,32 @@ export default function AdminModal({ isOpen, onClose }: AdminModalProps) {
             </div>
           </TabsContent>
 
-          {/* Configurações Tab */}
+          {/* Config Tab */}
           <TabsContent value="config" className="space-y-4">
             <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">Quem Somos</label>
+                <Textarea
+                  value={quemSomos || configData?.quemSomos || ""}
+                  onChange={(e) => setQuemSomos(e.target.value)}
+                  placeholder="Descrição da empresa"
+                  rows={4}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">Cor Primária</label>
+                <div className="flex gap-2">
+                  <input
+                    type="color"
+                    value={primaryColor}
+                    onChange={(e) => setPrimaryColor(e.target.value)}
+                    className="w-12 h-10 rounded"
+                  />
+                  <Input value={primaryColor} readOnly />
+                </div>
+              </div>
+
               <div>
                 <label className="block text-sm font-medium mb-2">Logo</label>
                 <div className="border-2 border-dashed rounded-lg p-4">
@@ -420,11 +456,13 @@ export default function AdminModal({ isOpen, onClose }: AdminModalProps) {
                   ) : (
                     <label className="cursor-pointer flex flex-col items-center gap-2">
                       <Upload size={24} />
-                      <span className="text-sm">Clique para fazer upload do logo</span>
+                      <span className="text-sm">Clique para fazer upload</span>
                       <input
                         type="file"
                         accept="image/*"
-                        onChange={(e) => handleImageChange(e, setLogoFile, setLogoPreview)}
+                        onChange={(e) =>
+                          handleImageChange(e, setLogoFile, setLogoPreview)
+                        }
                         className="hidden"
                       />
                     </label>
@@ -457,43 +495,18 @@ export default function AdminModal({ isOpen, onClose }: AdminModalProps) {
                   ) : (
                     <label className="cursor-pointer flex flex-col items-center gap-2">
                       <Upload size={24} />
-                      <span className="text-sm">Clique para fazer upload do banner</span>
+                      <span className="text-sm">Clique para fazer upload</span>
                       <input
                         type="file"
                         accept="image/*"
-                        onChange={(e) => handleImageChange(e, setBannerFile, setBannerPreview)}
+                        onChange={(e) =>
+                          handleImageChange(e, setBannerFile, setBannerPreview)
+                        }
                         className="hidden"
                       />
                     </label>
                   )}
                 </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-2">Cor Primária</label>
-                <div className="flex gap-2">
-                  <input
-                    type="color"
-                    value={primaryColor}
-                    onChange={(e) => setPrimaryColor(e.target.value)}
-                    className="w-12 h-10 rounded cursor-pointer"
-                  />
-                  <Input
-                    value={primaryColor}
-                    onChange={(e) => setPrimaryColor(e.target.value)}
-                    placeholder="#1E40AF"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-2">Quem Somos</label>
-                <Textarea
-                  value={quemSomos || configData?.quemSomos || ""}
-                  onChange={(e) => setQuemSomos(e.target.value)}
-                  placeholder="Descrição da empresa"
-                  rows={4}
-                />
               </div>
 
               <Button

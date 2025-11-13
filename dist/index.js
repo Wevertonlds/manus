@@ -654,10 +654,73 @@ var systemRouter = router({
 });
 
 // server/routers.ts
+import { z as z3 } from "zod";
+import { TRPCError as TRPCError4 } from "@trpc/server";
+
+// server/storage-router.ts
 import { z as z2 } from "zod";
 import { TRPCError as TRPCError3 } from "@trpc/server";
+import { createClient } from "@supabase/supabase-js";
+var supabaseUrl = process.env.SUPABASE_URL;
+var supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+if (!supabaseUrl || !supabaseServiceKey) {
+  throw new Error("Missing Supabase credentials for storage operations");
+}
+var supabase = createClient(supabaseUrl, supabaseServiceKey);
+function sanitizeFilename(filename) {
+  return filename.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9.-]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
+}
+var storageRouter = router({
+  uploadFile: protectedProcedure.input(
+    z2.object({
+      bucket: z2.enum(["carrossel", "investimentos", "config"]),
+      filename: z2.string(),
+      fileBase64: z2.string()
+      // Base64 encoded file content
+    })
+  ).mutation(async ({ input, ctx }) => {
+    if (ctx.user.role !== "admin") {
+      throw new TRPCError3({ code: "FORBIDDEN" });
+    }
+    try {
+      const sanitizedFilename = sanitizeFilename(input.filename);
+      const timestamp2 = Date.now();
+      const path3 = `${timestamp2}-${sanitizedFilename}`;
+      const buffer = Buffer.from(input.fileBase64, "base64");
+      const { data, error } = await supabase.storage.from(input.bucket).upload(path3, buffer, {
+        cacheControl: "3600",
+        upsert: true,
+        contentType: "image/png"
+        // Adjust based on file type if needed
+      });
+      if (error) {
+        console.error("Upload error:", error);
+        throw new TRPCError3({
+          code: "INTERNAL_SERVER_ERROR",
+          message: `Upload failed: ${error.message}`
+        });
+      }
+      const {
+        data: { publicUrl }
+      } = supabase.storage.from(input.bucket).getPublicUrl(data.path);
+      return {
+        url: publicUrl,
+        path: data.path
+      };
+    } catch (error) {
+      console.error("Storage operation failed:", error);
+      throw new TRPCError3({
+        code: "INTERNAL_SERVER_ERROR",
+        message: "Failed to upload file"
+      });
+    }
+  })
+});
+
+// server/routers.ts
 var appRouter = router({
   system: systemRouter,
+  storage: storageRouter,
   auth: router({
     me: publicProcedure.query((opts) => opts.ctx.user),
     logout: publicProcedure.mutation(({ ctx }) => {
@@ -673,26 +736,26 @@ var appRouter = router({
     list: publicProcedure.query(async () => {
       return getCarrossel();
     }),
-    create: protectedProcedure.input(z2.object({
-      titulo: z2.string(),
-      descricao: z2.string().optional(),
-      imagemUrl: z2.string().optional()
+    create: protectedProcedure.input(z3.object({
+      titulo: z3.string(),
+      descricao: z3.string().optional(),
+      imagemUrl: z3.string().optional()
     })).mutation(async ({ input, ctx }) => {
-      if (ctx.user.role !== "admin") throw new TRPCError3({ code: "FORBIDDEN" });
+      if (ctx.user.role !== "admin") throw new TRPCError4({ code: "FORBIDDEN" });
       return createCarrossel(input);
     }),
-    update: protectedProcedure.input(z2.object({
-      id: z2.number(),
-      titulo: z2.string().optional(),
-      descricao: z2.string().optional(),
-      imagemUrl: z2.string().optional()
+    update: protectedProcedure.input(z3.object({
+      id: z3.number(),
+      titulo: z3.string().optional(),
+      descricao: z3.string().optional(),
+      imagemUrl: z3.string().optional()
     })).mutation(async ({ input, ctx }) => {
-      if (ctx.user.role !== "admin") throw new TRPCError3({ code: "FORBIDDEN" });
+      if (ctx.user.role !== "admin") throw new TRPCError4({ code: "FORBIDDEN" });
       const { id, ...data } = input;
       return updateCarrossel(id, data);
     }),
-    delete: protectedProcedure.input(z2.object({ id: z2.number() })).mutation(async ({ input, ctx }) => {
-      if (ctx.user.role !== "admin") throw new TRPCError3({ code: "FORBIDDEN" });
+    delete: protectedProcedure.input(z3.object({ id: z3.number() })).mutation(async ({ input, ctx }) => {
+      if (ctx.user.role !== "admin") throw new TRPCError4({ code: "FORBIDDEN" });
       return deleteCarrossel(input.id);
     })
   }),
@@ -701,28 +764,28 @@ var appRouter = router({
     list: publicProcedure.query(async () => {
       return getInvestimentos();
     }),
-    create: protectedProcedure.input(z2.object({
-      tipo: z2.enum(["lancamentos", "na_planta", "aluguel"]),
-      titulo: z2.string(),
-      descricao: z2.string().optional(),
-      imagemUrl: z2.string().optional()
+    create: protectedProcedure.input(z3.object({
+      tipo: z3.enum(["lancamentos", "na_planta", "aluguel"]),
+      titulo: z3.string(),
+      descricao: z3.string().optional(),
+      imagemUrl: z3.string().optional()
     })).mutation(async ({ input, ctx }) => {
-      if (ctx.user.role !== "admin") throw new TRPCError3({ code: "FORBIDDEN" });
+      if (ctx.user.role !== "admin") throw new TRPCError4({ code: "FORBIDDEN" });
       return createInvestimento(input);
     }),
-    update: protectedProcedure.input(z2.object({
-      id: z2.number(),
-      tipo: z2.enum(["lancamentos", "na_planta", "aluguel"]).optional(),
-      titulo: z2.string().optional(),
-      descricao: z2.string().optional(),
-      imagemUrl: z2.string().optional()
+    update: protectedProcedure.input(z3.object({
+      id: z3.number(),
+      tipo: z3.enum(["lancamentos", "na_planta", "aluguel"]).optional(),
+      titulo: z3.string().optional(),
+      descricao: z3.string().optional(),
+      imagemUrl: z3.string().optional()
     })).mutation(async ({ input, ctx }) => {
-      if (ctx.user.role !== "admin") throw new TRPCError3({ code: "FORBIDDEN" });
+      if (ctx.user.role !== "admin") throw new TRPCError4({ code: "FORBIDDEN" });
       const { id, ...data } = input;
       return updateInvestimento(id, data);
     }),
-    delete: protectedProcedure.input(z2.object({ id: z2.number() })).mutation(async ({ input, ctx }) => {
-      if (ctx.user.role !== "admin") throw new TRPCError3({ code: "FORBIDDEN" });
+    delete: protectedProcedure.input(z3.object({ id: z3.number() })).mutation(async ({ input, ctx }) => {
+      if (ctx.user.role !== "admin") throw new TRPCError4({ code: "FORBIDDEN" });
       return deleteInvestimento(input.id);
     })
   }),
@@ -731,12 +794,12 @@ var appRouter = router({
     get: publicProcedure.query(async () => {
       return getConfig();
     }),
-    update: protectedProcedure.input(z2.object({
-      quemSomos: z2.string().optional(),
-      corPrimaria: z2.string().optional(),
-      tamanho: z2.number().optional()
+    update: protectedProcedure.input(z3.object({
+      quemSomos: z3.string().optional(),
+      corPrimaria: z3.string().optional(),
+      tamanho: z3.number().optional()
     })).mutation(async ({ input, ctx }) => {
-      if (ctx.user.role !== "admin") throw new TRPCError3({ code: "FORBIDDEN" });
+      if (ctx.user.role !== "admin") throw new TRPCError4({ code: "FORBIDDEN" });
       return updateConfig(input);
     })
   })

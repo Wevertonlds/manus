@@ -4,6 +4,7 @@ import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router, protectedProcedure } from "./_core/trpc";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
+import { storageRouter } from "./storage-router";
 import {
   getCarrossel,
   createCarrossel,
@@ -19,6 +20,7 @@ import {
 
 export const appRouter = router({
   system: systemRouter,
+  storage: storageRouter,
   auth: router({
     me: publicProcedure.query(opts => opts.ctx.user),
     logout: publicProcedure.mutation(({ ctx }) => {
