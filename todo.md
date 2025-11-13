@@ -62,3 +62,11 @@
 - [x] Criar modal de login obrigatório para acessar "Área de Gestão"
 - [x] Proteger AdminModal com autenticação
 - [x] Fazer commit das mudanças
+
+
+## Setup Local (VSCode)
+- [x] Criar arquivo .env.local.example com variáveis necessárias
+- [x] Criar README.md com instruções de setup local
+- [x] Criar SETUP_LOCAL.md com guia passo a passo
+- [x] Ajustar configurações para suportar ambiente local
+- [x] Fazer commit
