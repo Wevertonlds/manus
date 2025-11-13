@@ -1,12 +1,11 @@
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
+import { Trash2, Edit2, Plus, Upload } from "lucide-react";
 import { trpc } from "@/lib/trpc";
-import { Loader2, Upload, X, Edit2, Trash2 } from "lucide-react";
 
 interface AdminModalProps {
   isOpen: boolean;
@@ -14,613 +13,687 @@ interface AdminModalProps {
 }
 
 export default function AdminModal({ isOpen, onClose }: AdminModalProps) {
-  const [activeTab, setActiveTab] = useState("carrossel");
-  const [isLoading, setIsLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState("compra");
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [formData, setFormData] = useState({
+    titulo: "",
+    descricao: "",
+    imagemUrl: "",
+    endereco: "",
+    area_m2: 0,
+    banheiros: 0,
+    quartos: 0,
+    suites: 0,
+    garagem: 0,
+    piscina: false,
+    academia: false,
+    churrasqueira: false,
+    condominio: 0,
+    iptu: 0,
+    preco: 0,
+  });
 
-  // Carrossel state
-  const [carrosselTitle, setCarrosselTitle] = useState("");
-  const [carrosselDesc, setCarrosselDesc] = useState("");
-  const [carrosselImage, setCarrosselImage] = useState<File | null>(null);
-  const [carrosselImagePreview, setCarrosselImagePreview] = useState("");
+  const { data: investimentos } = trpc.investimentos.list.useQuery();
+  const createMutation = trpc.investimentos.create.useMutation();
+  const updateMutation = trpc.investimentos.update.useMutation();
+  const deleteMutation = trpc.investimentos.delete.useMutation();
+  const uploadMutation = trpc.storage.uploadFile.useMutation();
 
-  // Investimentos state
-  const [investTitle, setInvestTitle] = useState("");
-  const [investDesc, setInvestDesc] = useState("");
-  const [investType, setInvestType] = useState("lancamentos");
-  const [investImage, setInvestImage] = useState<File | null>(null);
-  const [investImagePreview, setInvestImagePreview] = useState("");
-  const [investEndereco, setInvestEndereco] = useState("");
-  const [investAreaMt2, setInvestAreaMt2] = useState("");
-  const [investBanheiros, setInvestBanheiros] = useState("");
-  const [investQuartos, setInvestQuartos] = useState("");
-  const [investSuites, setInvestSuites] = useState("");
-  const [investGaragem, setInvestGaragem] = useState("");
-  const [investPiscina, setInvestPiscina] = useState(0);
-  const [investAcademia, setInvestAcademia] = useState(0);
-  const [investChurrasqueira, setInvestChurrasqueira] = useState(0);
-  const [investCondominio, setInvestCondominio] = useState("");
-  const [investIptu, setInvestIptu] = useState("");
-  const [investPreco, setInvestPreco] = useState("");
-
-  // Config state
-  const [quemSomos, setQuemSomos] = useState("");
-  const [primaryColor, setPrimaryColor] = useState("#1E40AF");
-  const [whatsapp, setWhatsapp] = useState("");
-  const [facebook, setFacebook] = useState("");
-  const [instagram, setInstagram] = useState("");
-
-  // Queries
-  const { data: configData, refetch: refetchConfig } = trpc.config.get.useQuery();
-  const { data: settingsData, refetch: refetchSettings } = trpc.settings.get.useQuery();
-  const { data: carrosselData = [], refetch: refetchCarrossel } = trpc.carrossel.list.useQuery();
-  const { data: investimentosData = [], refetch: refetchInvestimentos } = trpc.investimentos.list.useQuery();
-
-  // Mutations
-  const createCarrossel = trpc.carrossel.create.useMutation();
-  const updateCarrosselMut = trpc.carrossel.update.useMutation();
-  const deleteCarrosselMut = trpc.carrossel.delete.useMutation();
-  const createInvestimento = trpc.investimentos.create.useMutation();
-  const updateInvestimentoMut = trpc.investimentos.update.useMutation();
-  const deleteInvestimentoMut = trpc.investimentos.delete.useMutation();
-  const updateConfigMut = trpc.config.update.useMutation();
-  const updateSettingsMut = trpc.settings.update.useMutation();
-  const uploadFile = trpc.storage.uploadFile.useMutation();
-
-  const fileToBase64 = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = () => {
-        const result = reader.result as string;
-        const base64 = result.split(",")[1];
-        resolve(base64);
-      };
-      reader.onerror = reject;
-    });
+  const typeMap = {
+    compra: "LANÇAMENTOS",
+    "compra-planta": "NA_PLANTA",
+    aluguel: "ALUGUEL",
   };
 
-  const handleImageChange = (
-    e: React.ChangeEvent<HTMLInputElement>,
-    setFile: (file: File | null) => void,
-    setPreview: (preview: string) => void
-  ) => {
+  const currentType = typeMap[activeTab as keyof typeof typeMap];
+  const filteredInvestimentos = investimentos?.filter((inv) => inv.tipo === currentType) || [];
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      setFile(file);
+    if (!file) return;
+
+    try {
       const reader = new FileReader();
-      reader.onloadend = () => {
-        setPreview(reader.result as string);
+      reader.onload = async (event) => {
+        const base64 = event.target?.result as string;
+        const result = await uploadMutation.mutateAsync({
+          fileName: file.name,
+          fileData: base64,
+          bucket: "investimentos",
+        });
+        setFormData({ ...formData, imagemUrl: result.url });
+        toast.success("Imagem enviada com sucesso!");
       };
       reader.readAsDataURL(file);
-    }
-  };
-
-  // Carrossel handlers
-  const handleAddCarrossel = async () => {
-    if (!carrosselTitle) {
-      toast.error("Preencha o título");
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      let imageUrl = carrosselImagePreview;
-
-      if (carrosselImage) {
-        const base64 = await fileToBase64(carrosselImage);
-        const result = await uploadFile.mutateAsync({
-          bucket: "carrossel",
-          filename: carrosselImage.name,
-          fileBase64: base64,
-        });
-        if (!result) {
-          toast.error("Erro ao fazer upload da imagem");
-          setIsLoading(false);
-          return;
-        }
-        imageUrl = result.url;
-      }
-
-      if (editingId) {
-        await updateCarrosselMut.mutateAsync({
-          id: editingId,
-          titulo: carrosselTitle,
-          descricao: carrosselDesc,
-          imagemUrl: imageUrl,
-        });
-        toast.success("Slide atualizado!");
-        setEditingId(null);
-      } else {
-        await createCarrossel.mutateAsync({
-          titulo: carrosselTitle,
-          descricao: carrosselDesc,
-          imagemUrl: imageUrl,
-        });
-        toast.success("Slide adicionado!");
-      }
-
-      setCarrosselTitle("");
-      setCarrosselDesc("");
-      setCarrosselImage(null);
-      setCarrosselImagePreview("");
-      refetchCarrossel();
     } catch (error) {
-      toast.error("Erro ao salvar slide");
-      console.error(error);
-    } finally {
-      setIsLoading(false);
+      toast.error("Erro ao fazer upload da imagem");
     }
   };
 
-  const handleDeleteCarrossel = async (id: number) => {
-    if (!confirm("Tem certeza?")) return;
+  const handleSave = async () => {
     try {
-      await deleteCarrosselMut.mutateAsync({ id });
-      toast.success("Slide excluído!");
-      refetchCarrossel();
-    } catch (error) {
-      toast.error("Erro ao excluir");
-    }
-  };
-
-  // Investimentos handlers
-  const handleAddInvestimento = async () => {
-    if (!investTitle) {
-      toast.error("Preencha o título");
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      let imageUrl = investImagePreview;
-
-      if (investImage) {
-        const base64 = await fileToBase64(investImage);
-        const result = await uploadFile.mutateAsync({
-          bucket: "investimentos",
-          filename: investImage.name,
-          fileBase64: base64,
-        });
-        if (!result) {
-          toast.error("Erro ao fazer upload da imagem");
-          setIsLoading(false);
-          return;
-        }
-        imageUrl = result.url;
-      }
-
       if (editingId) {
-        await updateInvestimentoMut.mutateAsync({
+        await updateMutation.mutateAsync({
           id: editingId,
-          tipo: investType as "lancamentos" | "na_planta" | "aluguel",
-          titulo: investTitle,
-          descricao: investDesc,
-          imagemUrl: imageUrl,
-          endereco: investEndereco || null,
-          areaMt2: investAreaMt2 ? parseInt(investAreaMt2) : null,
-          banheiros: investBanheiros ? parseInt(investBanheiros) : null,
-          quartos: investQuartos ? parseInt(investQuartos) : null,
-          suites: investSuites ? parseInt(investSuites) : null,
-          garagem: investGaragem ? parseInt(investGaragem) : null,
-          piscina: investPiscina,
-          academia: investAcademia,
-          churrasqueira: investChurrasqueira,
-          condominio: investCondominio ? parseInt(investCondominio) : null,
-          iptu: investIptu ? parseInt(investIptu) : null,
-          preco: investPreco ? parseInt(investPreco) : null,
+          ...formData,
+          tipo: currentType,
         });
         toast.success("Investimento atualizado!");
-        setEditingId(null);
       } else {
-        await createInvestimento.mutateAsync({
-          tipo: investType as "lancamentos" | "na_planta" | "aluguel",
-          titulo: investTitle,
-          descricao: investDesc,
-          imagemUrl: imageUrl,
-          endereco: investEndereco || null,
-          areaMt2: investAreaMt2 ? parseInt(investAreaMt2) : null,
-          banheiros: investBanheiros ? parseInt(investBanheiros) : null,
-          quartos: investQuartos ? parseInt(investQuartos) : null,
-          suites: investSuites ? parseInt(investSuites) : null,
-          garagem: investGaragem ? parseInt(investGaragem) : null,
-          piscina: investPiscina,
-          academia: investAcademia,
-          churrasqueira: investChurrasqueira,
-          condominio: investCondominio ? parseInt(investCondominio) : null,
-          iptu: investIptu ? parseInt(investIptu) : null,
-          preco: investPreco ? parseInt(investPreco) : null,
+        await createMutation.mutateAsync({
+          ...formData,
+          tipo: currentType,
         });
-        toast.success("Investimento adicionado!");
+        toast.success("Investimento criado!");
       }
-
-      setInvestTitle("");
-      setInvestDesc("");
-      setInvestType("lancamentos");
-      setInvestImage(null);
-      setInvestImagePreview("");
-      setInvestEndereco("");
-      setInvestAreaMt2("");
-      setInvestBanheiros("");
-      setInvestQuartos("");
-      setInvestSuites("");
-      setInvestGaragem("");
-      setInvestPiscina(0);
-      setInvestAcademia(0);
-      setInvestChurrasqueira(0);
-      setInvestCondominio("");
-      setInvestIptu("");
-      setInvestPreco("");
-      refetchInvestimentos();
+      setFormData({
+        titulo: "",
+        descricao: "",
+        imagemUrl: "",
+        endereco: "",
+        area_m2: 0,
+        banheiros: 0,
+        quartos: 0,
+        suites: 0,
+        garagem: 0,
+        piscina: false,
+        academia: false,
+        churrasqueira: false,
+        condominio: 0,
+        iptu: 0,
+        preco: 0,
+      });
+      setEditingId(null);
     } catch (error) {
       toast.error("Erro ao salvar investimento");
-      console.error(error);
-    } finally {
-      setIsLoading(false);
     }
   };
 
-  const handleDeleteInvestimento = async (id: number) => {
-    if (!confirm("Tem certeza?")) return;
-    try {
-      await deleteInvestimentoMut.mutateAsync({ id });
-      toast.success("Investimento excluído!");
-      refetchInvestimentos();
-    } catch (error) {
-      toast.error("Erro ao excluir");
+  const handleEdit = (inv: any) => {
+    setFormData(inv);
+    setEditingId(inv.id);
+  };
+
+  const handleDelete = async (id: number) => {
+    if (confirm("Tem certeza que deseja deletar este investimento?")) {
+      try {
+        await deleteMutation.mutateAsync({ id });
+        toast.success("Investimento deletado!");
+      } catch (error) {
+        toast.error("Erro ao deletar investimento");
+      }
     }
   };
 
-  // Config handlers
-  const handleUpdateConfig = async () => {
-    setIsLoading(true);
-    try {
-      await updateConfigMut.mutateAsync({
-        quemSomos: quemSomos || configData?.quemSomos || "",
-        corPrimaria: primaryColor,
-      });
-      toast.success("Configurações atualizadas!");
-      refetchConfig();
-    } catch (error) {
-      toast.error("Erro ao atualizar");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleUpdateSettings = async () => {
-    setIsLoading(true);
-    try {
-      await updateSettingsMut.mutateAsync({
-        whatsapp: whatsapp || settingsData?.whatsapp || "",
-        facebook: facebook || settingsData?.facebook || "",
-        instagram: instagram || settingsData?.instagram || "",
-      });
-      toast.success("Redes sociais atualizadas!");
-      refetchSettings();
-    } catch (error) {
-      toast.error("Erro ao atualizar");
-    } finally {
-      setIsLoading(false);
-    }
+  const handleCancel = () => {
+    setFormData({
+      titulo: "",
+      descricao: "",
+      imagemUrl: "",
+      endereco: "",
+      area_m2: 0,
+      banheiros: 0,
+      quartos: 0,
+      suites: 0,
+      garagem: 0,
+      piscina: false,
+      academia: false,
+      churrasqueira: false,
+      condominio: 0,
+      iptu: 0,
+      preco: 0,
+    });
+    setEditingId(null);
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-screen overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Área de Gestão</DialogTitle>
+          <DialogTitle>Área de Gestão - Investimentos</DialogTitle>
         </DialogHeader>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="carrossel">Slides</TabsTrigger>
-            <TabsTrigger value="investimentos">Investimentos</TabsTrigger>
-            <TabsTrigger value="config">Configurações</TabsTrigger>
-            <TabsTrigger value="redes">Redes Sociais</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="compra">Compra</TabsTrigger>
+            <TabsTrigger value="compra-planta">Compra na Planta</TabsTrigger>
+            <TabsTrigger value="aluguel">Aluguel</TabsTrigger>
           </TabsList>
 
-          {/* Carrossel Tab */}
-          <TabsContent value="carrossel" className="space-y-4">
+          {/* Compra Tab */}
+          <TabsContent value="compra" className="space-y-4">
             <div className="space-y-4">
-              <Input
-                placeholder="Título do slide"
-                value={carrosselTitle}
-                onChange={(e) => setCarrosselTitle(e.target.value)}
-              />
-              <Textarea
-                placeholder="Descrição"
-                value={carrosselDesc}
-                onChange={(e) => setCarrosselDesc(e.target.value)}
-              />
+              <h3 className="font-bold text-lg">Investimentos - Compra</h3>
 
-              <div className="border-2 border-dashed rounded-lg p-4">
-                {carrosselImagePreview ? (
-                  <div className="relative">
-                    <img src={carrosselImagePreview} alt="Preview" className="max-h-32 rounded" />
-                    <button
-                      onClick={() => {
-                        setCarrosselImage(null);
-                        setCarrosselImagePreview("");
-                      }}
-                      className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded"
-                    >
-                      <X size={16} />
-                    </button>
-                  </div>
-                ) : (
-                  <label className="cursor-pointer flex flex-col items-center gap-2">
-                    <Upload size={24} />
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => handleImageChange(e, setCarrosselImage, setCarrosselImagePreview)}
-                      className="hidden"
-                    />
-                  </label>
-                )}
-              </div>
-
-              <Button onClick={handleAddCarrossel} disabled={isLoading} className="w-full">
-                {isLoading ? <Loader2 className="animate-spin mr-2" /> : null}
-                {editingId ? "Atualizar Slide" : "Adicionar Slide"}
-              </Button>
-            </div>
-
-            <div className="space-y-2 max-h-48 overflow-y-auto">
-              {carrosselData.map((item) => (
-                <div key={item.id} className="p-3 bg-gray-100 rounded flex justify-between items-center">
-                  <div>
-                    <p className="font-medium">{item.titulo}</p>
-                    {item.imagemUrl && <img src={item.imagemUrl} alt={item.titulo} className="max-h-12 mt-1 rounded" />}
-                  </div>
-                  <div className="flex gap-2">
-                    <button onClick={() => { setEditingId(item.id); setCarrosselTitle(item.titulo); setCarrosselDesc(item.descricao || ""); setCarrosselImagePreview(item.imagemUrl || ""); }} className="p-2 hover:bg-blue-100 rounded">
-                      <Edit2 size={16} className="text-blue-600" />
-                    </button>
-                    <button onClick={() => handleDeleteCarrossel(item.id)} className="p-2 hover:bg-red-100 rounded">
-                      <Trash2 size={16} className="text-red-600" />
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </TabsContent>
-
-          {/* Investimentos Tab */}
-          <TabsContent value="investimentos" className="space-y-4 max-h-96 overflow-y-auto">
-            <div className="space-y-4">
-              <Input
-                placeholder="Título"
-                value={investTitle}
-                onChange={(e) => setInvestTitle(e.target.value)}
-              />
-              <select
-                value={investType}
-                onChange={(e) => setInvestType(e.target.value)}
-                className="w-full border rounded px-3 py-2"
-              >
-                <option value="lancamentos">Lançamentos</option>
-                <option value="na_planta">Na Planta</option>
-                <option value="aluguel">Aluguel</option>
-              </select>
-              <Textarea
-                placeholder="Descrição"
-                value={investDesc}
-                onChange={(e) => setInvestDesc(e.target.value)}
-              />
-
-              {/* Detalhes do Imóvel */}
-              <div className="bg-blue-50 p-4 rounded-lg space-y-3">
-                <h4 className="font-bold text-sm">Detalhes do Imóvel</h4>
-                <Input
-                  placeholder="Endereço"
-                  value={investEndereco}
-                  onChange={(e) => setInvestEndereco(e.target.value)}
-                />
-                <div className="grid grid-cols-2 gap-2">
+              {/* Form */}
+              <div className="border rounded-lg p-4 space-y-4 bg-gray-50">
+                <div className="grid grid-cols-2 gap-4">
                   <Input
-                    placeholder="Área (m²)"
-                    type="number"
-                    value={investAreaMt2}
-                    onChange={(e) => setInvestAreaMt2(e.target.value)}
+                    placeholder="Título"
+                    value={formData.titulo}
+                    onChange={(e) => setFormData({ ...formData, titulo: e.target.value })}
                   />
                   <Input
                     placeholder="Preço"
                     type="number"
-                    value={investPreco}
-                    onChange={(e) => setInvestPreco(e.target.value)}
+                    value={formData.preco}
+                    onChange={(e) => setFormData({ ...formData, preco: parseFloat(e.target.value) })}
+                  />
+                </div>
+
+                <Input
+                  placeholder="Descrição"
+                  value={formData.descricao}
+                  onChange={(e) => setFormData({ ...formData, descricao: e.target.value })}
+                />
+
+                <Input
+                  placeholder="Endereço"
+                  value={formData.endereco}
+                  onChange={(e) => setFormData({ ...formData, endereco: e.target.value })}
+                />
+
+                <div className="grid grid-cols-3 gap-4">
+                  <Input
+                    placeholder="Área (m²)"
+                    type="number"
+                    value={formData.area_m2}
+                    onChange={(e) => setFormData({ ...formData, area_m2: parseFloat(e.target.value) })}
                   />
                   <Input
                     placeholder="Quartos"
                     type="number"
-                    value={investQuartos}
-                    onChange={(e) => setInvestQuartos(e.target.value)}
+                    value={formData.quartos}
+                    onChange={(e) => setFormData({ ...formData, quartos: parseInt(e.target.value) })}
                   />
                   <Input
                     placeholder="Banheiros"
                     type="number"
-                    value={investBanheiros}
-                    onChange={(e) => setInvestBanheiros(e.target.value)}
+                    value={formData.banheiros}
+                    onChange={(e) => setFormData({ ...formData, banheiros: parseInt(e.target.value) })}
                   />
+                </div>
+
+                <div className="grid grid-cols-3 gap-4">
                   <Input
                     placeholder="Suítes"
                     type="number"
-                    value={investSuites}
-                    onChange={(e) => setInvestSuites(e.target.value)}
+                    value={formData.suites}
+                    onChange={(e) => setFormData({ ...formData, suites: parseInt(e.target.value) })}
                   />
                   <Input
                     placeholder="Garagem"
                     type="number"
-                    value={investGaragem}
-                    onChange={(e) => setInvestGaragem(e.target.value)}
+                    value={formData.garagem}
+                    onChange={(e) => setFormData({ ...formData, garagem: parseInt(e.target.value) })}
                   />
                   <Input
                     placeholder="Condomínio"
                     type="number"
-                    value={investCondominio}
-                    onChange={(e) => setInvestCondominio(e.target.value)}
+                    value={formData.condominio}
+                    onChange={(e) => setFormData({ ...formData, condominio: parseFloat(e.target.value) })}
                   />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
                   <Input
                     placeholder="IPTU"
                     type="number"
-                    value={investIptu}
-                    onChange={(e) => setInvestIptu(e.target.value)}
+                    value={formData.iptu}
+                    onChange={(e) => setFormData({ ...formData, iptu: parseFloat(e.target.value) })}
                   />
                 </div>
-                <div className="flex gap-4">
-                  <label className="flex items-center gap-2">
+
+                <div className="flex gap-2">
+                  <label className="flex items-center gap-2 cursor-pointer">
                     <input
                       type="checkbox"
-                      checked={investPiscina === 1}
-                      onChange={(e) => setInvestPiscina(e.target.checked ? 1 : 0)}
+                      checked={formData.piscina}
+                      onChange={(e) => setFormData({ ...formData, piscina: e.target.checked })}
                     />
                     Piscina
                   </label>
-                  <label className="flex items-center gap-2">
+                  <label className="flex items-center gap-2 cursor-pointer">
                     <input
                       type="checkbox"
-                      checked={investAcademia === 1}
-                      onChange={(e) => setInvestAcademia(e.target.checked ? 1 : 0)}
+                      checked={formData.academia}
+                      onChange={(e) => setFormData({ ...formData, academia: e.target.checked })}
                     />
                     Academia
                   </label>
-                  <label className="flex items-center gap-2">
+                  <label className="flex items-center gap-2 cursor-pointer">
                     <input
                       type="checkbox"
-                      checked={investChurrasqueira === 1}
-                      onChange={(e) => setInvestChurrasqueira(e.target.checked ? 1 : 0)}
+                      checked={formData.churrasqueira}
+                      onChange={(e) => setFormData({ ...formData, churrasqueira: e.target.checked })}
                     />
                     Churrasqueira
                   </label>
                 </div>
-              </div>
 
-              <div className="border-2 border-dashed rounded-lg p-4">
-                {investImagePreview ? (
-                  <div className="relative">
-                    <img src={investImagePreview} alt="Preview" className="max-h-32 rounded" />
-                    <button
-                      onClick={() => {
-                        setInvestImage(null);
-                        setInvestImagePreview("");
-                      }}
-                      className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded"
-                    >
-                      <X size={16} />
-                    </button>
-                  </div>
-                ) : (
-                  <label className="cursor-pointer flex flex-col items-center gap-2">
-                    <Upload size={24} />
+                <div className="flex items-center gap-2">
+                  <label className="flex items-center gap-2 cursor-pointer flex-1">
+                    <Upload size={18} />
+                    <span>Enviar Imagem</span>
                     <input
                       type="file"
                       accept="image/*"
-                      onChange={(e) => handleImageChange(e, setInvestImage, setInvestImagePreview)}
+                      onChange={handleFileUpload}
                       className="hidden"
+                      disabled={uploadMutation.isPending}
                     />
                   </label>
+                  {formData.imagemUrl && (
+                    <img src={formData.imagemUrl} alt="Preview" className="w-16 h-16 rounded object-cover" />
+                  )}
+                </div>
+
+                <div className="flex gap-2">
+                  <Button onClick={handleSave} className="flex-1">
+                    {editingId ? "Atualizar" : "Criar"}
+                  </Button>
+                  {editingId && (
+                    <Button variant="outline" onClick={handleCancel} className="flex-1">
+                      Cancelar
+                    </Button>
+                  )}
+                </div>
+              </div>
+
+              {/* List */}
+              <div className="space-y-2">
+                <h4 className="font-semibold">Investimentos Cadastrados</h4>
+                {filteredInvestimentos.length > 0 ? (
+                  <div className="space-y-2">
+                    {filteredInvestimentos.map((inv) => (
+                      <div key={inv.id} className="flex items-center gap-2 p-3 bg-gray-100 rounded">
+                        {inv.imagemUrl && (
+                          <img src={inv.imagemUrl} alt={inv.titulo} className="w-12 h-12 rounded object-cover" />
+                        )}
+                        <div className="flex-1">
+                          <p className="font-semibold">{inv.titulo}</p>
+                          <p className="text-sm text-gray-600">{inv.endereco}</p>
+                          <p className="text-sm font-bold text-blue-600">R$ {inv.preco?.toLocaleString("pt-BR")}</p>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleEdit(inv)}
+                        >
+                          <Edit2 size={16} />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => handleDelete(inv.id)}
+                        >
+                          <Trash2 size={16} />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-gray-500 text-center py-4">Nenhum investimento cadastrado</p>
                 )}
               </div>
-
-              <Button onClick={handleAddInvestimento} disabled={isLoading} className="w-full">
-                {isLoading ? <Loader2 className="animate-spin mr-2" /> : null}
-                {editingId ? "Atualizar Investimento" : "Adicionar Investimento"}
-              </Button>
-            </div>
-
-            <div className="space-y-2 max-h-48 overflow-y-auto">
-              {investimentosData.map((item) => (
-                <div key={item.id} className="p-3 bg-gray-100 rounded flex justify-between items-center">
-                  <div>
-                    <p className="font-medium">{item.titulo}</p>
-                    <p className="text-xs text-gray-500">{item.tipo}</p>
-                    {item.imagemUrl && <img src={item.imagemUrl} alt={item.titulo} className="max-h-12 mt-1 rounded" />}
-                  </div>
-                  <div className="flex gap-2">
-                    <button onClick={() => { setEditingId(item.id); setInvestTitle(item.titulo); setInvestDesc(item.descricao || ""); setInvestType(item.tipo || "lancamentos"); setInvestImagePreview(item.imagemUrl || ""); setInvestEndereco(item.endereco || ""); setInvestAreaMt2(item.areaMt2?.toString() || ""); setInvestBanheiros(item.banheiros?.toString() || ""); setInvestQuartos(item.quartos?.toString() || ""); setInvestSuites(item.suites?.toString() || ""); setInvestGaragem(item.garagem?.toString() || ""); setInvestPiscina(item.piscina || 0); setInvestAcademia(item.academia || 0); setInvestChurrasqueira(item.churrasqueira || 0); setInvestCondominio(item.condominio?.toString() || ""); setInvestIptu(item.iptu?.toString() || ""); setInvestPreco(item.preco?.toString() || ""); }} className="p-2 hover:bg-blue-100 rounded">
-                      <Edit2 size={16} className="text-blue-600" />
-                    </button>
-                    <button onClick={() => handleDeleteInvestimento(item.id)} className="p-2 hover:bg-red-100 rounded">
-                      <Trash2 size={16} className="text-red-600" />
-                    </button>
-                  </div>
-                </div>
-              ))}
             </div>
           </TabsContent>
 
-          {/* Configurações Tab */}
-          <TabsContent value="config" className="space-y-4">
+          {/* Compra na Planta Tab */}
+          <TabsContent value="compra-planta" className="space-y-4">
             <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-2">Quem Somos</label>
-                <Textarea
-                  placeholder="Descrição da empresa"
-                  value={quemSomos || configData?.quemSomos || ""}
-                  onChange={(e) => setQuemSomos(e.target.value)}
-                  rows={4}
-                />
-              </div>
+              <h3 className="font-bold text-lg">Investimentos - Compra na Planta</h3>
 
-              <div>
-                <label className="block text-sm font-medium mb-2">Cor Primária</label>
-                <div className="flex gap-2">
-                  <input
-                    type="color"
-                    value={primaryColor}
-                    onChange={(e) => setPrimaryColor(e.target.value)}
-                    className="w-16 h-10 rounded cursor-pointer"
+              {/* Form */}
+              <div className="border rounded-lg p-4 space-y-4 bg-gray-50">
+                <div className="grid grid-cols-2 gap-4">
+                  <Input
+                    placeholder="Título"
+                    value={formData.titulo}
+                    onChange={(e) => setFormData({ ...formData, titulo: e.target.value })}
                   />
                   <Input
-                    value={primaryColor}
-                    onChange={(e) => setPrimaryColor(e.target.value)}
-                    placeholder="#1E40AF"
+                    placeholder="Preço"
+                    type="number"
+                    value={formData.preco}
+                    onChange={(e) => setFormData({ ...formData, preco: parseFloat(e.target.value) })}
                   />
+                </div>
+
+                <Input
+                  placeholder="Descrição"
+                  value={formData.descricao}
+                  onChange={(e) => setFormData({ ...formData, descricao: e.target.value })}
+                />
+
+                <Input
+                  placeholder="Endereço"
+                  value={formData.endereco}
+                  onChange={(e) => setFormData({ ...formData, endereco: e.target.value })}
+                />
+
+                <div className="grid grid-cols-3 gap-4">
+                  <Input
+                    placeholder="Área (m²)"
+                    type="number"
+                    value={formData.area_m2}
+                    onChange={(e) => setFormData({ ...formData, area_m2: parseFloat(e.target.value) })}
+                  />
+                  <Input
+                    placeholder="Quartos"
+                    type="number"
+                    value={formData.quartos}
+                    onChange={(e) => setFormData({ ...formData, quartos: parseInt(e.target.value) })}
+                  />
+                  <Input
+                    placeholder="Banheiros"
+                    type="number"
+                    value={formData.banheiros}
+                    onChange={(e) => setFormData({ ...formData, banheiros: parseInt(e.target.value) })}
+                  />
+                </div>
+
+                <div className="grid grid-cols-3 gap-4">
+                  <Input
+                    placeholder="Suítes"
+                    type="number"
+                    value={formData.suites}
+                    onChange={(e) => setFormData({ ...formData, suites: parseInt(e.target.value) })}
+                  />
+                  <Input
+                    placeholder="Garagem"
+                    type="number"
+                    value={formData.garagem}
+                    onChange={(e) => setFormData({ ...formData, garagem: parseInt(e.target.value) })}
+                  />
+                  <Input
+                    placeholder="Condomínio"
+                    type="number"
+                    value={formData.condominio}
+                    onChange={(e) => setFormData({ ...formData, condominio: parseFloat(e.target.value) })}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <Input
+                    placeholder="IPTU"
+                    type="number"
+                    value={formData.iptu}
+                    onChange={(e) => setFormData({ ...formData, iptu: parseFloat(e.target.value) })}
+                  />
+                </div>
+
+                <div className="flex gap-2">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.piscina}
+                      onChange={(e) => setFormData({ ...formData, piscina: e.target.checked })}
+                    />
+                    Piscina
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.academia}
+                      onChange={(e) => setFormData({ ...formData, academia: e.target.checked })}
+                    />
+                    Academia
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.churrasqueira}
+                      onChange={(e) => setFormData({ ...formData, churrasqueira: e.target.checked })}
+                    />
+                    Churrasqueira
+                  </label>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <label className="flex items-center gap-2 cursor-pointer flex-1">
+                    <Upload size={18} />
+                    <span>Enviar Imagem</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleFileUpload}
+                      className="hidden"
+                      disabled={uploadMutation.isPending}
+                    />
+                  </label>
+                  {formData.imagemUrl && (
+                    <img src={formData.imagemUrl} alt="Preview" className="w-16 h-16 rounded object-cover" />
+                  )}
+                </div>
+
+                <div className="flex gap-2">
+                  <Button onClick={handleSave} className="flex-1">
+                    {editingId ? "Atualizar" : "Criar"}
+                  </Button>
+                  {editingId && (
+                    <Button variant="outline" onClick={handleCancel} className="flex-1">
+                      Cancelar
+                    </Button>
+                  )}
                 </div>
               </div>
 
-              <Button onClick={handleUpdateConfig} disabled={isLoading} className="w-full">
-                {isLoading ? <Loader2 className="animate-spin mr-2" /> : null}
-                Salvar Configurações
-              </Button>
+              {/* List */}
+              <div className="space-y-2">
+                <h4 className="font-semibold">Investimentos Cadastrados</h4>
+                {filteredInvestimentos.length > 0 ? (
+                  <div className="space-y-2">
+                    {filteredInvestimentos.map((inv) => (
+                      <div key={inv.id} className="flex items-center gap-2 p-3 bg-gray-100 rounded">
+                        {inv.imagemUrl && (
+                          <img src={inv.imagemUrl} alt={inv.titulo} className="w-12 h-12 rounded object-cover" />
+                        )}
+                        <div className="flex-1">
+                          <p className="font-semibold">{inv.titulo}</p>
+                          <p className="text-sm text-gray-600">{inv.endereco}</p>
+                          <p className="text-sm font-bold text-blue-600">R$ {inv.preco?.toLocaleString("pt-BR")}</p>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleEdit(inv)}
+                        >
+                          <Edit2 size={16} />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => handleDelete(inv.id)}
+                        >
+                          <Trash2 size={16} />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-gray-500 text-center py-4">Nenhum investimento cadastrado</p>
+                )}
+              </div>
             </div>
           </TabsContent>
 
-          {/* Redes Sociais Tab */}
-          <TabsContent value="redes" className="space-y-4">
+          {/* Aluguel Tab */}
+          <TabsContent value="aluguel" className="space-y-4">
             <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-2">WhatsApp</label>
+              <h3 className="font-bold text-lg">Investimentos - Aluguel</h3>
+
+              {/* Form */}
+              <div className="border rounded-lg p-4 space-y-4 bg-gray-50">
+                <div className="grid grid-cols-2 gap-4">
+                  <Input
+                    placeholder="Título"
+                    value={formData.titulo}
+                    onChange={(e) => setFormData({ ...formData, titulo: e.target.value })}
+                  />
+                  <Input
+                    placeholder="Preço"
+                    type="number"
+                    value={formData.preco}
+                    onChange={(e) => setFormData({ ...formData, preco: parseFloat(e.target.value) })}
+                  />
+                </div>
+
                 <Input
-                  placeholder="Ex: 5511999999999"
-                  value={whatsapp || settingsData?.whatsapp || ""}
-                  onChange={(e) => setWhatsapp(e.target.value)}
+                  placeholder="Descrição"
+                  value={formData.descricao}
+                  onChange={(e) => setFormData({ ...formData, descricao: e.target.value })}
                 />
+
+                <Input
+                  placeholder="Endereço"
+                  value={formData.endereco}
+                  onChange={(e) => setFormData({ ...formData, endereco: e.target.value })}
+                />
+
+                <div className="grid grid-cols-3 gap-4">
+                  <Input
+                    placeholder="Área (m²)"
+                    type="number"
+                    value={formData.area_m2}
+                    onChange={(e) => setFormData({ ...formData, area_m2: parseFloat(e.target.value) })}
+                  />
+                  <Input
+                    placeholder="Quartos"
+                    type="number"
+                    value={formData.quartos}
+                    onChange={(e) => setFormData({ ...formData, quartos: parseInt(e.target.value) })}
+                  />
+                  <Input
+                    placeholder="Banheiros"
+                    type="number"
+                    value={formData.banheiros}
+                    onChange={(e) => setFormData({ ...formData, banheiros: parseInt(e.target.value) })}
+                  />
+                </div>
+
+                <div className="grid grid-cols-3 gap-4">
+                  <Input
+                    placeholder="Suítes"
+                    type="number"
+                    value={formData.suites}
+                    onChange={(e) => setFormData({ ...formData, suites: parseInt(e.target.value) })}
+                  />
+                  <Input
+                    placeholder="Garagem"
+                    type="number"
+                    value={formData.garagem}
+                    onChange={(e) => setFormData({ ...formData, garagem: parseInt(e.target.value) })}
+                  />
+                  <Input
+                    placeholder="Condomínio"
+                    type="number"
+                    value={formData.condominio}
+                    onChange={(e) => setFormData({ ...formData, condominio: parseFloat(e.target.value) })}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <Input
+                    placeholder="IPTU"
+                    type="number"
+                    value={formData.iptu}
+                    onChange={(e) => setFormData({ ...formData, iptu: parseFloat(e.target.value) })}
+                  />
+                </div>
+
+                <div className="flex gap-2">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.piscina}
+                      onChange={(e) => setFormData({ ...formData, piscina: e.target.checked })}
+                    />
+                    Piscina
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.academia}
+                      onChange={(e) => setFormData({ ...formData, academia: e.target.checked })}
+                    />
+                    Academia
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.churrasqueira}
+                      onChange={(e) => setFormData({ ...formData, churrasqueira: e.target.checked })}
+                    />
+                    Churrasqueira
+                  </label>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <label className="flex items-center gap-2 cursor-pointer flex-1">
+                    <Upload size={18} />
+                    <span>Enviar Imagem</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleFileUpload}
+                      className="hidden"
+                      disabled={uploadMutation.isPending}
+                    />
+                  </label>
+                  {formData.imagemUrl && (
+                    <img src={formData.imagemUrl} alt="Preview" className="w-16 h-16 rounded object-cover" />
+                  )}
+                </div>
+
+                <div className="flex gap-2">
+                  <Button onClick={handleSave} className="flex-1">
+                    {editingId ? "Atualizar" : "Criar"}
+                  </Button>
+                  {editingId && (
+                    <Button variant="outline" onClick={handleCancel} className="flex-1">
+                      Cancelar
+                    </Button>
+                  )}
+                </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium mb-2">Facebook</label>
-                <Input
-                  placeholder="Ex: https://facebook.com/seu-perfil"
-                  value={facebook || settingsData?.facebook || ""}
-                  onChange={(e) => setFacebook(e.target.value)}
-                />
+              {/* List */}
+              <div className="space-y-2">
+                <h4 className="font-semibold">Investimentos Cadastrados</h4>
+                {filteredInvestimentos.length > 0 ? (
+                  <div className="space-y-2">
+                    {filteredInvestimentos.map((inv) => (
+                      <div key={inv.id} className="flex items-center gap-2 p-3 bg-gray-100 rounded">
+                        {inv.imagemUrl && (
+                          <img src={inv.imagemUrl} alt={inv.titulo} className="w-12 h-12 rounded object-cover" />
+                        )}
+                        <div className="flex-1">
+                          <p className="font-semibold">{inv.titulo}</p>
+                          <p className="text-sm text-gray-600">{inv.endereco}</p>
+                          <p className="text-sm font-bold text-blue-600">R$ {inv.preco?.toLocaleString("pt-BR")}</p>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleEdit(inv)}
+                        >
+                          <Edit2 size={16} />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => handleDelete(inv.id)}
+                        >
+                          <Trash2 size={16} />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-gray-500 text-center py-4">Nenhum investimento cadastrado</p>
+                )}
               </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-2">Instagram</label>
-                <Input
-                  placeholder="Ex: https://instagram.com/seu-perfil"
-                  value={instagram || settingsData?.instagram || ""}
-                  onChange={(e) => setInstagram(e.target.value)}
-                />
-              </div>
-
-              <Button onClick={handleUpdateSettings} disabled={isLoading} className="w-full">
-                {isLoading ? <Loader2 className="animate-spin mr-2" /> : null}
-                Salvar Redes Sociais
-              </Button>
             </div>
           </TabsContent>
         </Tabs>
