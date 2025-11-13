@@ -11,6 +11,17 @@ if (!supabaseUrl || !supabaseAnonKey) {
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
+// Sanitize filename to remove special characters and accents
+function sanitizeFilename(filename: string): string {
+  return filename
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "") // Remove accents
+    .replace(/[^a-z0-9.-]/g, "-") // Replace special chars with dash
+    .replace(/-+/g, "-") // Replace multiple dashes with single dash
+    .replace(/^-|-$/g, ""); // Remove leading/trailing dashes
+}
+
 // Upload file to Supabase Storage
 export async function uploadFile(
   bucket: string,
@@ -18,9 +29,14 @@ export async function uploadFile(
   file: File
 ): Promise<{ url: string; path: string } | null> {
   try {
+    const sanitizedFilename = sanitizeFilename(file.name);
+    const sanitizedPath = path.includes("/")
+      ? path.substring(0, path.lastIndexOf("/") + 1) + sanitizedFilename
+      : sanitizedFilename;
+
     const { data, error } = await supabase.storage
       .from(bucket)
-      .upload(path, file, {
+      .upload(sanitizedPath, file, {
         cacheControl: "3600",
         upsert: true,
       });
