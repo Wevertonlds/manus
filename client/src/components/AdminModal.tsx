@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
-import { Loader2, Upload, X } from "lucide-react";
+import { Loader2, Upload, X, Edit2, Trash2 } from "lucide-react";
 
 interface AdminModalProps {
   isOpen: boolean;
@@ -16,6 +16,7 @@ interface AdminModalProps {
 export default function AdminModal({ isOpen, onClose }: AdminModalProps) {
   const [activeTab, setActiveTab] = useState("carrossel");
   const [isLoading, setIsLoading] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
 
   // Carrossel state
   const [carrosselTitle, setCarrosselTitle] = useState("");
@@ -39,13 +40,19 @@ export default function AdminModal({ isOpen, onClose }: AdminModalProps) {
   const [bannerPreview, setBannerPreview] = useState("");
 
   // Queries
-  const { data: configData } = trpc.config.get.useQuery();
-  const { data: carrosselData = [] } = trpc.carrossel.list.useQuery();
-  const { data: investimentosData = [] } = trpc.investimentos.list.useQuery();
+  const { data: configData, refetch: refetchConfig } = trpc.config.get.useQuery();
+  const { data: carrosselData = [], refetch: refetchCarrossel } = trpc.carrossel.list.useQuery();
+  const { data: investimentosData = [], refetch: refetchInvestimentos } = trpc.investimentos.list.useQuery();
 
   // Mutations
   const createCarrossel = trpc.carrossel.create.useMutation();
+  const updateCarrosselMut = trpc.carrossel.update.useMutation();
+  const deleteCarrosselMut = trpc.carrossel.delete.useMutation();
+  
   const createInvestimento = trpc.investimentos.create.useMutation();
+  const updateInvestimentoMut = trpc.investimentos.update.useMutation();
+  const deleteInvestimentoMut = trpc.investimentos.delete.useMutation();
+  
   const updateConfig = trpc.config.update.useMutation();
   const uploadFile = trpc.storage.uploadFile.useMutation();
 
@@ -103,19 +110,54 @@ export default function AdminModal({ isOpen, onClose }: AdminModalProps) {
         imageUrl = result.url;
       }
 
-      await createCarrossel.mutateAsync({
-        titulo: carrosselTitle,
-        descricao: carrosselDesc,
-        imagemUrl: imageUrl,
-      });
+      if (editingId) {
+        await updateCarrosselMut.mutateAsync({
+          id: editingId,
+          titulo: carrosselTitle,
+          descricao: carrosselDesc,
+          imagemUrl: imageUrl,
+        });
+        toast.success("Slide atualizado com sucesso!");
+        setEditingId(null);
+      } else {
+        await createCarrossel.mutateAsync({
+          titulo: carrosselTitle,
+          descricao: carrosselDesc,
+          imagemUrl: imageUrl,
+        });
+        toast.success("Slide adicionado com sucesso!");
+      }
 
-      toast.success("Slide adicionado com sucesso!");
       setCarrosselTitle("");
       setCarrosselDesc("");
       setCarrosselImage(null);
       setCarrosselImagePreview("");
+      refetchCarrossel();
     } catch (error) {
-      toast.error("Erro ao adicionar slide");
+      toast.error("Erro ao salvar slide");
+      console.error(error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleEditCarrossel = (slide: any) => {
+    setEditingId(slide.id);
+    setCarrosselTitle(slide.titulo);
+    setCarrosselDesc(slide.descricao);
+    setCarrosselImagePreview(slide.imagemUrl || "");
+  };
+
+  const handleDeleteCarrossel = async (id: number) => {
+    if (!confirm("Tem certeza que deseja excluir este slide?")) return;
+    
+    setIsLoading(true);
+    try {
+      await deleteCarrosselMut.mutateAsync({ id });
+      toast.success("Slide excluído com sucesso!");
+      refetchCarrossel();
+    } catch (error) {
+      toast.error("Erro ao excluir slide");
       console.error(error);
     } finally {
       setIsLoading(false);
@@ -147,20 +189,57 @@ export default function AdminModal({ isOpen, onClose }: AdminModalProps) {
         imageUrl = result.url;
       }
 
-      await createInvestimento.mutateAsync({
-        tipo: investType as "lancamentos" | "na_planta" | "aluguel",
-        titulo: investTitle,
-        descricao: investDesc,
-        imagemUrl: imageUrl,
-      });
+      if (editingId) {
+        await updateInvestimentoMut.mutateAsync({
+          id: editingId,
+          tipo: investType as "lancamentos" | "na_planta" | "aluguel",
+          titulo: investTitle,
+          descricao: investDesc,
+          imagemUrl: imageUrl,
+        });
+        toast.success("Investimento atualizado com sucesso!");
+        setEditingId(null);
+      } else {
+        await createInvestimento.mutateAsync({
+          tipo: investType as "lancamentos" | "na_planta" | "aluguel",
+          titulo: investTitle,
+          descricao: investDesc,
+          imagemUrl: imageUrl,
+        });
+        toast.success("Investimento adicionado com sucesso!");
+      }
 
-      toast.success("Investimento adicionado com sucesso!");
       setInvestTitle("");
       setInvestDesc("");
       setInvestImage(null);
       setInvestImagePreview("");
+      refetchInvestimentos();
     } catch (error) {
-      toast.error("Erro ao adicionar investimento");
+      toast.error("Erro ao salvar investimento");
+      console.error(error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleEditInvestimento = (invest: any) => {
+    setEditingId(invest.id);
+    setInvestTitle(invest.titulo);
+    setInvestDesc(invest.descricao);
+    setInvestType(invest.tipo);
+    setInvestImagePreview(invest.imagemUrl || "");
+  };
+
+  const handleDeleteInvestimento = async (id: number) => {
+    if (!confirm("Tem certeza que deseja excluir este investimento?")) return;
+    
+    setIsLoading(true);
+    try {
+      await deleteInvestimentoMut.mutateAsync({ id });
+      toast.success("Investimento excluído com sucesso!");
+      refetchInvestimentos();
+    } catch (error) {
+      toast.error("Erro ao excluir investimento");
       console.error(error);
     } finally {
       setIsLoading(false);
@@ -170,33 +249,6 @@ export default function AdminModal({ isOpen, onClose }: AdminModalProps) {
   const handleUpdateConfig = async () => {
     setIsLoading(true);
     try {
-      let logoUrl = logoPreview;
-      let bannerUrl = bannerPreview;
-
-      if (logoFile) {
-        const base64 = await fileToBase64(logoFile);
-        const result = await uploadFile.mutateAsync({
-          bucket: "config",
-          filename: `logo-${Date.now()}.${logoFile.name.split(".").pop()}`,
-          fileBase64: base64,
-        });
-        if (result) {
-          logoUrl = result.url;
-        }
-      }
-
-      if (bannerFile) {
-        const base64 = await fileToBase64(bannerFile);
-        const result = await uploadFile.mutateAsync({
-          bucket: "config",
-          filename: `banner-${Date.now()}.${bannerFile.name.split(".").pop()}`,
-          fileBase64: base64,
-        });
-        if (result) {
-          bannerUrl = result.url;
-        }
-      }
-
       await updateConfig.mutateAsync({
         quemSomos: quemSomos || configData?.quemSomos || "",
         corPrimaria: primaryColor,
@@ -204,8 +256,7 @@ export default function AdminModal({ isOpen, onClose }: AdminModalProps) {
       } as any);
 
       toast.success("Configurações atualizadas com sucesso!");
-      setLogoFile(null);
-      setBannerFile(null);
+      refetchConfig();
     } catch (error) {
       toast.error("Erro ao atualizar configurações");
       console.error(error);
@@ -293,16 +344,51 @@ export default function AdminModal({ isOpen, onClose }: AdminModalProps) {
                 className="w-full"
               >
                 {isLoading ? <Loader2 className="animate-spin mr-2" /> : null}
-                Adicionar Slide
+                {editingId ? "Atualizar Slide" : "Adicionar Slide"}
               </Button>
+
+              {editingId && (
+                <Button
+                  onClick={() => {
+                    setEditingId(null);
+                    setCarrosselTitle("");
+                    setCarrosselDesc("");
+                    setCarrosselImage(null);
+                    setCarrosselImagePreview("");
+                  }}
+                  variant="outline"
+                  className="w-full"
+                >
+                  Cancelar Edição
+                </Button>
+              )}
 
               <div className="mt-6">
                 <h3 className="font-semibold mb-3">Slides Atuais</h3>
                 <div className="space-y-2 max-h-48 overflow-y-auto">
                   {carrosselData.map((slide) => (
-                    <div key={slide.id} className="p-3 bg-gray-100 rounded">
-                      <p className="font-medium">{slide.titulo}</p>
-                      <p className="text-sm text-gray-600">{slide.descricao}</p>
+                    <div key={slide.id} className="p-3 bg-gray-100 rounded flex justify-between items-start">
+                      <div className="flex-1">
+                        <p className="font-medium">{slide.titulo}</p>
+                        <p className="text-sm text-gray-600">{slide.descricao}</p>
+                        {slide.imagemUrl && (
+                          <img src={slide.imagemUrl} alt={slide.titulo} className="max-h-20 mt-2 rounded" />
+                        )}
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleEditCarrossel(slide)}
+                          className="p-2 hover:bg-blue-100 rounded"
+                        >
+                          <Edit2 size={16} className="text-blue-600" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteCarrossel(slide.id)}
+                          className="p-2 hover:bg-red-100 rounded"
+                        >
+                          <Trash2 size={16} className="text-red-600" />
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -388,16 +474,52 @@ export default function AdminModal({ isOpen, onClose }: AdminModalProps) {
                 className="w-full"
               >
                 {isLoading ? <Loader2 className="animate-spin mr-2" /> : null}
-                Adicionar Investimento
+                {editingId ? "Atualizar Investimento" : "Adicionar Investimento"}
               </Button>
+
+              {editingId && (
+                <Button
+                  onClick={() => {
+                    setEditingId(null);
+                    setInvestTitle("");
+                    setInvestDesc("");
+                    setInvestImage(null);
+                    setInvestImagePreview("");
+                  }}
+                  variant="outline"
+                  className="w-full"
+                >
+                  Cancelar Edição
+                </Button>
+              )}
 
               <div className="mt-6">
                 <h3 className="font-semibold mb-3">Investimentos Atuais</h3>
                 <div className="space-y-2 max-h-48 overflow-y-auto">
                   {investimentosData.map((invest) => (
-                    <div key={invest.id} className="p-3 bg-gray-100 rounded">
-                      <p className="font-medium">{invest.titulo}</p>
-                      <p className="text-sm text-gray-600">{invest.descricao}</p>
+                    <div key={invest.id} className="p-3 bg-gray-100 rounded flex justify-between items-start">
+                      <div className="flex-1">
+                        <p className="font-medium">{invest.titulo}</p>
+                        <p className="text-xs text-gray-500 mb-1">{invest.tipo}</p>
+                        <p className="text-sm text-gray-600">{invest.descricao}</p>
+                        {invest.imagemUrl && (
+                          <img src={invest.imagemUrl} alt={invest.titulo} className="max-h-20 mt-2 rounded" />
+                        )}
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleEditInvestimento(invest)}
+                          className="p-2 hover:bg-blue-100 rounded"
+                        >
+                          <Edit2 size={16} className="text-blue-600" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteInvestimento(invest.id)}
+                          className="p-2 hover:bg-red-100 rounded"
+                        >
+                          <Trash2 size={16} className="text-red-600" />
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -431,84 +553,6 @@ export default function AdminModal({ isOpen, onClose }: AdminModalProps) {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium mb-2">Logo</label>
-                <div className="border-2 border-dashed rounded-lg p-4">
-                  {logoPreview || (configData?.logo || "") ? (
-                    <div className="relative">
-                      <img
-                        src={logoPreview || configData?.logo || ""}
-                        alt="Logo"
-                        className="max-h-32 rounded"
-                      />
-                      {logoFile && (
-                        <button
-                          onClick={() => {
-                            setLogoFile(null);
-                            setLogoPreview("");
-                          }}
-                          className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded"
-                        >
-                          <X size={16} />
-                        </button>
-                      )}
-                    </div>
-                  ) : (
-                    <label className="cursor-pointer flex flex-col items-center gap-2">
-                      <Upload size={24} />
-                      <span className="text-sm">Clique para fazer upload</span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={(e) =>
-                          handleImageChange(e, setLogoFile, setLogoPreview)
-                        }
-                        className="hidden"
-                      />
-                    </label>
-                  )}
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-2">Banner</label>
-                <div className="border-2 border-dashed rounded-lg p-4">
-                  {bannerPreview || (configData?.banner || "") ? (
-                    <div className="relative">
-                      <img
-                        src={bannerPreview || configData?.banner || ""}
-                        alt="Banner"
-                        className="max-h-32 rounded w-full object-cover"
-                      />
-                      {bannerFile && (
-                        <button
-                          onClick={() => {
-                            setBannerFile(null);
-                            setBannerPreview("");
-                          }}
-                          className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded"
-                        >
-                          <X size={16} />
-                        </button>
-                      )}
-                    </div>
-                  ) : (
-                    <label className="cursor-pointer flex flex-col items-center gap-2">
-                      <Upload size={24} />
-                      <span className="text-sm">Clique para fazer upload</span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={(e) =>
-                          handleImageChange(e, setBannerFile, setBannerPreview)
-                        }
-                        className="hidden"
-                      />
-                    </label>
-                  )}
-                </div>
-              </div>
-
               <Button
                 onClick={handleUpdateConfig}
                 disabled={isLoading}
@@ -517,6 +561,14 @@ export default function AdminModal({ isOpen, onClose }: AdminModalProps) {
                 {isLoading ? <Loader2 className="animate-spin mr-2" /> : null}
                 Salvar Configurações
               </Button>
+
+              {configData && (
+                <div className="mt-6 p-4 bg-blue-50 rounded">
+                  <h3 className="font-semibold mb-2">Configurações Atuais</h3>
+                  <p className="text-sm"><strong>Quem Somos:</strong> {configData.quemSomos}</p>
+                  <p className="text-sm"><strong>Cor Primária:</strong> {configData.corPrimaria}</p>
+                </div>
+              )}
             </div>
           </TabsContent>
         </Tabs>

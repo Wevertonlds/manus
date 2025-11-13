@@ -19,9 +19,12 @@
 - [x] Integrar dados dinâmicos dos Cards (tabela investimentos)
 - [x] Implementar autenticação (login/cadastro)
 - [x] Implementar área de admin para edição de conteúdo
-- [ ] Implementar upload de fotos para S3 Storage
+- [x] Implementar upload de fotos para S3 Storage
 - [x] Implementar edição de textos e configurações
 - [x] Implementar proteção de rotas (RLS)
+- [ ] Implementar CRUD completo para Carrossel (editar e excluir slides)
+- [ ] Implementar CRUD completo para Investimentos
+- [ ] Implementar CRUD completo para Configurações
 
 ## Design & Estilo
 - [x] Definir paleta de cores (preto #000000, azul #1E40AF, branco #FFFFFF, cinza #F3F4F6, vermelho #DC2626)
