@@ -54,8 +54,10 @@ var investimentos = mysqlTable("investimentos", {
 var config = mysqlTable("config", {
   id: int("id").autoincrement().primaryKey(),
   quemSomos: text("quemSomos"),
-  corPrimaria: varchar("corPrimaria", { length: 7 }).default("#1E40AF"),
+  corPrimaria: varchar("corPrimaria", { length: 7 }),
   tamanho: int("tamanho").default(16),
+  logo: text("logo"),
+  banner: text("banner"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull()
 });
